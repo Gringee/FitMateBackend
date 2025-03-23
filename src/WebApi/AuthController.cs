@@ -15,8 +15,12 @@ public class AuthController : ControllerBase
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request)
     {
-        await _authService.RegisterAsync(request.Username, request.Email, request.Password);
-        return Ok("Zarejestrowano pomyślnie.");
+        var result = await _authService.RegisterAsync(request.Username, request.Email, request.Password);
+
+        if (!result.Success)
+            return BadRequest(result.ErrorMessage);
+
+        return Ok("Registered successfully.");
     }
 
     [HttpPost("login")]
@@ -24,7 +28,7 @@ public class AuthController : ControllerBase
     {
         var token = await _authService.LoginAsync(request.Email, request.Password);
         if (token == null)
-            return Unauthorized("Błędny email lub hasło!");
+            return Unauthorized(new { message = "Incorrect email or password!" });
 
         return Ok(new { token });
     }

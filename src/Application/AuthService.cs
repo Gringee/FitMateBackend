@@ -5,6 +5,7 @@ using System.Security.Claims;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.Extensions.Configuration;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Application;
 
@@ -19,8 +20,22 @@ public class AuthService
         _config = config;
     }
 
-    public async Task RegisterAsync(string username, string email, string password)
+    public async Task<(bool Success, string ErrorMessage)> RegisterAsync(string username, string email, string password)
     {
+        var users = await _userRepository.GetAllAsync();
+
+        if (!IsValidEmail(email))
+            return (false, "Invalid email address format.");
+
+        if (users.Any(u => u.Email.Equals(email, StringComparison.OrdinalIgnoreCase)))
+            return (false, "The email address you entered already exists.");
+
+        if (users.Any(u => u.Username.Equals(username, StringComparison.OrdinalIgnoreCase)))
+            return (false, "The username you entered already exists.");
+
+        if (!IsPasswordValid(password, out var passwordError))
+            return (false, passwordError);
+
         var user = new User
         {
             Id = Guid.NewGuid(),
@@ -30,6 +45,8 @@ public class AuthService
         };
 
         await _userRepository.AddAsync(user);
+
+        return (true, string.Empty);
     }
 
     public async Task<string?> LoginAsync(string email, string password)
@@ -54,7 +71,8 @@ public class AuthService
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new Claim(JwtRegisteredClaimNames.Email, user.Email),
-            new Claim(JwtRegisteredClaimNames.UniqueName, user.Username)
+            new Claim(JwtRegisteredClaimNames.UniqueName, user.Username),
+            new Claim("role", user.Role.ToString())
         };
 
         var token = new JwtSecurityToken(
@@ -66,5 +84,37 @@ public class AuthService
         );
 
         return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    private bool IsPasswordValid(string password, out string error)
+    {
+        if (password.Length < 8)
+        {
+            error = "The password must be at least 8 characters long.";
+            return false;
+        }
+        if (!password.Any(char.IsUpper))
+        {
+            error = "The password must contain at least one uppercase letter.";
+            return false;
+        }
+        if (!password.Any(char.IsLower))
+        {
+            error = "The password must contain at least one lowercase letter.";
+            return false;
+        }
+        if (!password.Any(char.IsDigit))
+        {
+            error = "The password must contain at least one digit.";
+            return false;
+        }
+        error = string.Empty;
+        return true;
+    }
+
+    private bool IsValidEmail(string email)
+    {
+        var emailRegex = new Regex(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", RegexOptions.IgnoreCase);
+        return emailRegex.IsMatch(email);
     }
 }
