@@ -4,12 +4,12 @@ WORKDIR /src
 
 # 1) kopia sln + csproj
 COPY src/*.sln .
-COPY src/*/*.csproj ./                # skopiujemy ka¿dy .csproj w src/<proj>/
+COPY src/*/*.csproj ./              
 
 # 2) restore
 RUN for f in */*.csproj; do dotnet restore "$f"; done
 
-# 3) reszta Ÿróde³
+# 3) reszta Å¸rÃ³deÂ³
 COPY src .
 
 # 4) publish tylko WebApi
