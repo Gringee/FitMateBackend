@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Http;
 using Application.DTOs;
 using Application.Services;
 using WebApi.Controllers;
-using Application.Intertfaces;
+using Application.Interfaces;
 
 namespace WebApi.Tests
 {

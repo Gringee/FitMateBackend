@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Http;
 using Application.DTOs;
 using WebApi.Controllers;
 using Application.Interfaces;
+using Domain.Enums;
 
 namespace WebApi.Tests
 {
@@ -35,7 +36,7 @@ namespace WebApi.Tests
             var dto = new CreateExerciseDto
             {
                 Name = "Push-up",
-                DifficultyLevel = "Medium",
+                DifficultyLevel = DifficultyLevel.Advanced,
                 BodyPartId = Guid.NewGuid()
             };
             var created = new ExerciseDto
@@ -148,7 +149,7 @@ namespace WebApi.Tests
             var dto = new UpdateExerciseDto
             {
                 Name = "Squat",
-                DifficultyLevel = "Easy",
+                DifficultyLevel = DifficultyLevel.Intermediate,
                 BodyPartId = Guid.NewGuid()
             };
             _mockService
@@ -171,7 +172,7 @@ namespace WebApi.Tests
             var dto = new UpdateExerciseDto
             {
                 Name = "Squat",
-                DifficultyLevel = "Easy",
+                DifficultyLevel = DifficultyLevel.Intermediate,
                 BodyPartId = Guid.NewGuid()
             };
             _mockService

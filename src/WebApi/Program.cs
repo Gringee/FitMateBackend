@@ -8,7 +8,7 @@ using Infrastructure.Repositories;
 using Domain.Interfaces;                            
 using Application.Services;
 using Application.Interfaces;
-using Application.Intertfaces;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -100,6 +100,13 @@ builder.Services
             ValidAudience = jwtSettings["Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(key)
         };
+    });
+
+builder.Services
+    .AddControllers()
+    .AddJsonOptions(opts =>
+    {
+        opts.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 
 builder.Services.AddAuthorization();

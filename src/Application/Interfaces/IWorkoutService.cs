@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace Application.Intertfaces
+namespace Application.Interfaces
 {
     public interface IWorkoutService
     {

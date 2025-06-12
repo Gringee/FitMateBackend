@@ -21,13 +21,57 @@ namespace Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Domain.Entities.BodyPart", b =>
+                {
+                    b.Property<Guid>("BodyPartId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.HasKey("BodyPartId");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("body_parts", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.Category", b =>
+                {
+                    b.Property<Guid>("CategoryId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.HasKey("CategoryId");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("categories", (string)null);
+                });
+
             modelBuilder.Entity("Domain.Entities.Exercise", b =>
                 {
                     b.Property<Guid>("ExerciseId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("BodyPartId")
+                    b.Property<Guid?>("BodyPartId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid?>("CategoryId")
@@ -42,11 +86,18 @@ namespace Infrastructure.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
 
                     b.HasKey("ExerciseId");
 
-                    b.ToTable("Exercises");
+                    b.HasIndex("BodyPartId");
+
+                    b.HasIndex("CategoryId");
+
+                    b.HasIndex("Name");
+
+                    b.ToTable("exercises", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.User", b =>
@@ -95,7 +146,9 @@ namespace Infrastructure.Migrations
 
                     b.HasKey("WorkoutId");
 
-                    b.ToTable("Workouts");
+                    b.HasIndex("UserId");
+
+                    b.ToTable("workouts", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.WorkoutExercise", b =>
@@ -120,7 +173,8 @@ namespace Infrastructure.Migrations
                         .HasColumnType("integer");
 
                     b.Property<decimal>("Weight")
-                        .HasColumnType("numeric");
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)");
 
                     b.Property<Guid>("WorkoutId")
                         .HasColumnType("uuid");
@@ -129,9 +183,27 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("ExerciseId");
 
-                    b.HasIndex("WorkoutId");
+                    b.HasIndex("WorkoutId", "SetNumber")
+                        .IsUnique();
 
-                    b.ToTable("WorkoutExercise");
+                    b.ToTable("workout_exercises", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.Exercise", b =>
+                {
+                    b.HasOne("Domain.Entities.BodyPart", "BodyPart")
+                        .WithMany("Exercises")
+                        .HasForeignKey("BodyPartId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Domain.Entities.Category", "Category")
+                        .WithMany("Exercises")
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("BodyPart");
+
+                    b.Navigation("Category");
                 });
 
             modelBuilder.Entity("Domain.Entities.WorkoutExercise", b =>
@@ -139,7 +211,7 @@ namespace Infrastructure.Migrations
                     b.HasOne("Domain.Entities.Exercise", "Exercise")
                         .WithMany("WorkoutExercises")
                         .HasForeignKey("ExerciseId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Domain.Entities.Workout", "Workout")
@@ -151,6 +223,16 @@ namespace Infrastructure.Migrations
                     b.Navigation("Exercise");
 
                     b.Navigation("Workout");
+                });
+
+            modelBuilder.Entity("Domain.Entities.BodyPart", b =>
+                {
+                    b.Navigation("Exercises");
+                });
+
+            modelBuilder.Entity("Domain.Entities.Category", b =>
+                {
+                    b.Navigation("Exercises");
                 });
 
             modelBuilder.Entity("Domain.Entities.Exercise", b =>

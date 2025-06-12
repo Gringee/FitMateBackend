@@ -1,5 +1,7 @@
-﻿using System;
+﻿using Domain.Enums;
+using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -8,10 +10,12 @@ namespace Application.DTOs
 {
     public class CreateExerciseDto
     {
+        [Required, MaxLength(50)]
         public string Name { get; set; } = null!;
         public string? Description { get; set; }
-        public string DifficultyLevel { get; set; } = null!;
-        public Guid BodyPartId { get; set; }
+        [EnumDataType(typeof(DifficultyLevel))]
+        public DifficultyLevel DifficultyLevel { get; set; }
+        public Guid? BodyPartId { get; set; }
         public Guid? CategoryId { get; set; }
     }
 
@@ -19,8 +23,8 @@ namespace Application.DTOs
     {
         public string Name { get; set; } = null!;
         public string? Description { get; set; }
-        public string DifficultyLevel { get; set; } = null!;
-        public Guid BodyPartId { get; set; }
+        public DifficultyLevel DifficultyLevel { get; set; }
+        public Guid? BodyPartId { get; set; }
         public Guid? CategoryId { get; set; }
     }
 
@@ -29,8 +33,8 @@ namespace Application.DTOs
         public Guid ExerciseId { get; set; }
         public string Name { get; set; } = null!;
         public string? Description { get; set; }
-        public string DifficultyLevel { get; set; } = null!;
-        public Guid BodyPartId { get; set; }
+        public DifficultyLevel DifficultyLevel { get; set; }
+        public Guid? BodyPartId { get; set; }
         public Guid? CategoryId { get; set; }
     }
 }
