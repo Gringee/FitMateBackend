@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    ports:
+      - "5433:5432"               # host:container
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: Admin123!
+      POSTGRES_DB: fitmatedb
+      # lokalne ustawienia:
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - db-data:/var/lib/postgresql/data/pgdata
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - db
+    ports:
+      - "5000:8080"               # Host http://localhost:5000
+    environment:
+      ConnectionStrings__Default: Host=db;Port=5432;Database=fitmatedb;Username=admin;Password=Admin123!
+      ASPNETCORE_ENVIRONMENT: Development
+    volumes:
+      # hot-reload podczas developmentu (opcjonalnie)
+      - ./src:/src
+    command: >
+      sh -c "
+        dotnet ef database update --project /src/Infrastructure/Infrastructure.csproj &&
+        dotnet WebApi.dll
+      "
+
+volumes:
+  db-data:
