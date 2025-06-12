@@ -1,8 +1,8 @@
-﻿using System;
-using Domain;
+﻿using Domain.Entities;
+using Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
-namespace Infrastructure;
+namespace Infrastructure.Repositories;
 
 public class UserRepository : IUserRepository
 {

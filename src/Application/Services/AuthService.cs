@@ -6,8 +6,10 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.Extensions.Configuration;
 using System.Text;
 using System.Text.RegularExpressions;
+using Domain.Entities;
+using Domain.Interfaces;
 
-namespace Application;
+namespace Application.Services;
 
 public class AuthService
 {
@@ -38,7 +40,7 @@ public class AuthService
 
         var user = new User
         {
-            Id = Guid.NewGuid(),
+            UserId = Guid.NewGuid(),
             Username = username,
             Email = email,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(password)
@@ -69,7 +71,7 @@ public class AuthService
 
         var claims = new[]
         {
-            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new Claim(JwtRegisteredClaimNames.Sub, user.UserId.ToString()),
             new Claim(JwtRegisteredClaimNames.Email, user.Email),
             new Claim(JwtRegisteredClaimNames.UniqueName, user.Username),
             new Claim("role", user.Role.ToString())

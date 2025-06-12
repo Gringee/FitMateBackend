@@ -1,6 +1,7 @@
-﻿using Domain;
+﻿using Domain.Entities;
+using Domain.Interfaces;
 
-namespace Application;
+namespace Application.Services;
 
 public class UserService
 {
@@ -18,7 +19,7 @@ public class UserService
     {
         var user = new User
         {
-            Id = Guid.NewGuid(),
+            UserId = Guid.NewGuid(),
             Username = username,
             Email = email,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(password)
