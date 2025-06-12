@@ -7,7 +7,7 @@ COPY src/*.sln .
 COPY src/*/*.csproj ./              
 
 # 2) restore
-RUN for f in */*.csproj; do dotnet restore "$f"; done
+RUN for f in *.csproj; do dotnet restore "$f"; done
 
 # 3) reszta Ÿróde³
 COPY src .
