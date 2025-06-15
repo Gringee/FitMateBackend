@@ -114,6 +114,11 @@ builder.Services.AddAuthorization();
 //Budowa aplikacji
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.Migrate();              // automatycznie wykona wszystkie migracje
+}
 //Konfiguracja pipeline HTTP
 
 //W³¹czenie Swaggera w trybie Development
