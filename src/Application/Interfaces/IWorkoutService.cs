@@ -11,5 +11,6 @@ namespace Application.Interfaces
         Task<List<WorkoutDto>> GetAllForUserAsync(Guid userId);
         Task DeleteWorkoutAsync(Guid userId, Guid workoutId);
         Task UpdateWorkoutAsync(Guid userId, Guid workoutId, CreateWorkoutDto dto);
+        Task<WorkoutDto?> DuplicateAsync(Guid userId, Guid workoutId, DuplicateWorkoutDto dto);
     }
 }

@@ -101,5 +101,16 @@ namespace WebApi.Controllers
 
             return NoContent();
         }
+
+        /// <summary>
+        /// Wyszukuje ćwiczenie na podstawie zapytania tekstowego.
+        /// </summary>
+        /// <param name="id">Identyfikator ćwiczenia</param>
+        [HttpGet("search")]
+        public async Task<ActionResult<IEnumerable<ExerciseDto>>> Search([FromQuery] string query)
+        {
+            if (string.IsNullOrWhiteSpace(query)) return BadRequest("Query is empty");
+            return Ok(await _service.SearchAsync(query));
+        }
     }
 }

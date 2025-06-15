@@ -7,151 +7,152 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
 using Application.DTOs;
-using Application.Services;
-using WebApi.Controllers;
 using Application.Interfaces;
+using WebApi.Controllers;
 
-namespace WebApi.Tests
+namespace WebApi.Tests;
+
+public class WorkoutControllerTests
 {
-    public class WorkoutControllerTests
+    private readonly Mock<IWorkoutService> _svc;
+    private readonly WorkoutController _ctrl;
+    private readonly Guid _userId;
+
+    public WorkoutControllerTests()
     {
-        private readonly Mock<IWorkoutService> _mockService;
-        private readonly WorkoutController _controller;
-
-        public WorkoutControllerTests()
+        _svc = new Mock<IWorkoutService>(MockBehavior.Strict);
+        _ctrl = new WorkoutController(_svc.Object)
         {
-            _mockService = new Mock<IWorkoutService>();
-            _controller = new WorkoutController(_mockService.Object)
+            // wspólne „fałszywe” uwierzytelnienie
+            ControllerContext = new ControllerContext
             {
-                ControllerContext = new ControllerContext
-                {
-                    HttpContext = new DefaultHttpContext()
-                }
-            };
-        }
+                HttpContext = new DefaultHttpContext()
+            }
+        };
 
-        private void SetUserClaim(string type, string value)
+        _userId = Guid.NewGuid();
+        SetUserClaim(ClaimTypes.NameIdentifier, _userId.ToString());
+    }
+
+    /* ----------------- helper ----------------- */
+    private void SetUserClaim(string type, string value)
+    {
+        var id = new ClaimsIdentity();
+        id.AddClaim(new Claim(type, value));
+        _ctrl.ControllerContext.HttpContext.User = new ClaimsPrincipal(id);
+    }
+
+    /* ----------------- CREATE ----------------- */
+
+    [Fact]
+    public async Task CreateWorkout_ReturnsOk()
+    {
+        var dto = new CreateWorkoutDto
         {
-            var identity = new ClaimsIdentity();
-            identity.AddClaim(new Claim(type, value));
-            _controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(identity);
-        }
+            WorkoutDate = DateTime.UtcNow,
+            DurationMinutes = 30,
+            Notes = "Test",
+            Exercises = new()
+        };
 
-        [Fact]
-        public async Task Workout_CreateWorkout_ReturnsOk_OnSuccess()
+        _svc.Setup(s => s.CreateWorkoutAsync(_userId, dto))
+            .Returns(Task.CompletedTask);
+
+        var result = await _ctrl.CreateWorkout(dto);
+        Assert.IsType<OkResult>(result);
+    }
+
+    [Fact]
+    public async Task CreateWorkout_BadRequest_OnArgumentException()
+    {
+        var dto = new CreateWorkoutDto();
+        _svc.Setup(s => s.CreateWorkoutAsync(_userId, dto))
+            .ThrowsAsync(new ArgumentException("Invalid"));
+
+        var result = await _ctrl.CreateWorkout(dto);
+        var bad = Assert.IsType<BadRequestObjectResult>(result);
+
+        Assert.Contains("Invalid", bad.Value!.ToString());
+    }
+
+    /* ----------------- LIST ----------------- */
+
+    [Fact]
+    public async Task GetWorkouts_ReturnsOkWithList()
+    {
+        var workouts = new List<WorkoutDto>
         {
-            // Arrange
-            var userId = Guid.NewGuid();
-            SetUserClaim(ClaimTypes.NameIdentifier, userId.ToString());
+            new() { WorkoutId = Guid.NewGuid(), UserId = _userId, DurationMinutes = 20 },
+            new() { WorkoutId = Guid.NewGuid(), UserId = _userId, DurationMinutes = 45 }
+        };
 
-            var dto = new CreateWorkoutDto
-            {
-                WorkoutDate = DateTime.UtcNow,
-                DurationMinutes = 30,
-                Notes = "Test notes",
-                Exercises = new List<WorkoutExerciseDto>()
-            };
+        _svc.Setup(s => s.GetAllForUserAsync(_userId)).ReturnsAsync(workouts);
 
-            _mockService
-                .Setup(s => s.CreateWorkoutAsync(userId, dto))
-                .Returns(Task.CompletedTask);
+        var res = await _ctrl.GetWorkouts();
+        var ok = Assert.IsType<OkObjectResult>(res);
 
-            // Act
-            var result = await _controller.CreateWorkout(dto);
+        Assert.Equal(workouts, ok.Value);
+    }
 
-            // Assert
-            Assert.IsType<OkResult>(result);
-        }
+    /* ----------------- GET by ID ----------------- */
 
-        [Fact]
-        public async Task Workout_CreateWorkout_ReturnsBadRequest_OnArgumentException()
+    [Fact]
+    public async Task GetById_NotFound()
+    {
+        _svc.Setup(s => s.GetAllForUserAsync(_userId))
+            .ReturnsAsync(new List<WorkoutDto>());     // pusta lista
+
+        var res = await _ctrl.GetById(Guid.NewGuid());
+        Assert.IsType<NotFoundResult>(res);
+    }
+
+    /* ----------------- UPDATE ----------------- */
+
+    [Fact]
+    public async Task UpdateWorkout_ReturnsOk()
+    {
+        var id = Guid.NewGuid();
+        var dto = new CreateWorkoutDto { DurationMinutes = 60 };
+
+        _svc.Setup(s => s.UpdateWorkoutAsync(_userId, id, dto)).Returns(Task.CompletedTask);
+
+        var res = await _ctrl.UpdateWorkout(id, dto);
+        Assert.IsType<OkResult>(res);
+    }
+
+    /* ----------------- DELETE ----------------- */
+
+    [Fact]
+    public async Task DeleteWorkout_ReturnsNoContent()
+    {
+        var id = Guid.NewGuid();
+        _svc.Setup(s => s.DeleteWorkoutAsync(_userId, id)).Returns(Task.CompletedTask);
+
+        var res = await _ctrl.DeleteWorkout(id);
+        Assert.IsType<NoContentResult>(res);
+    }
+
+    /* ----------------- DUPLICATE ----------------- */
+
+    [Fact]
+    public async Task Duplicate_ReturnsCreated()
+    {
+        var srcId = Guid.NewGuid();
+        var newDto = new WorkoutDto
         {
-            // Arrange
-            var userId = Guid.NewGuid();
-            SetUserClaim(ClaimTypes.NameIdentifier, userId.ToString());
+            WorkoutId = Guid.NewGuid(),
+            UserId = _userId,
+            DurationMinutes = 30,
+            Exercises = new()
+        };
 
-            var dto = new CreateWorkoutDto();
-            _mockService
-                .Setup(s => s.CreateWorkoutAsync(userId, dto))
-                .ThrowsAsync(new ArgumentException("Invalid workout data."));
+        _svc.Setup(s => s.DuplicateAsync(_userId, srcId, It.IsAny<DuplicateWorkoutDto>()))
+            .ReturnsAsync(newDto);
 
-            // Act
-            var result = await _controller.CreateWorkout(dto);
+        var res = await _ctrl.Duplicate(srcId, new DuplicateWorkoutDto());
+        var created = Assert.IsType<CreatedAtActionResult>(res);
 
-            // Assert
-            var bad = Assert.IsType<BadRequestObjectResult>(result);
-            Assert.Contains("Invalid workout data.", bad.Value.ToString());
-        }
-
-        [Fact]
-        public async Task Workout_GetWorkouts_ReturnsOk_WithWorkouts()
-        {
-            // Arrange
-            var userId = Guid.NewGuid();
-            SetUserClaim("sub", userId.ToString());
-
-            var workouts = new List<WorkoutDto>
-            {
-                new WorkoutDto { WorkoutId = Guid.NewGuid(), UserId = userId, DurationMinutes = 20, Exercises = new List<WorkoutExerciseDto>() },
-                new WorkoutDto { WorkoutId = Guid.NewGuid(), UserId = userId, DurationMinutes = 45, Exercises = new List<WorkoutExerciseDto>() }
-            };
-
-            _mockService
-                .Setup(s => s.GetAllForUserAsync(userId))
-                .ReturnsAsync(workouts);
-
-            // Act
-            var result = await _controller.GetWorkouts();
-
-            // Assert
-            var ok = Assert.IsType<OkObjectResult>(result);
-            Assert.Equal(workouts, ok.Value);
-        }
-
-        [Fact]
-        public async Task Workout_DeleteWorkout_ReturnsNoContent()
-        {
-            // Arrange
-            var userId = Guid.NewGuid();
-            SetUserClaim("sub", userId.ToString());
-
-            var workoutId = Guid.NewGuid();
-            _mockService
-                .Setup(s => s.DeleteWorkoutAsync(userId, workoutId))
-                .Returns(Task.CompletedTask);
-
-            // Act
-            var result = await _controller.DeleteWorkout(workoutId);
-
-            // Assert
-            Assert.IsType<NoContentResult>(result);
-        }
-
-        [Fact]
-        public async Task Workout_UpdateWorkout_ReturnsOk_OnSuccess()
-        {
-            // Arrange
-            var userId = Guid.NewGuid();
-            SetUserClaim("sub", userId.ToString());
-
-            var workoutId = Guid.NewGuid();
-            var dto = new CreateWorkoutDto
-            {
-                WorkoutDate = DateTime.UtcNow,
-                DurationMinutes = 60,
-                Notes = "Updated notes",
-                Exercises = new List<WorkoutExerciseDto>()
-            };
-
-            _mockService
-                .Setup(s => s.UpdateWorkoutAsync(userId, workoutId, dto))
-                .Returns(Task.CompletedTask);
-
-            // Act
-            var result = await _controller.UpdateWorkout(workoutId, dto);
-
-            // Assert
-            Assert.IsType<OkResult>(result);
-        }
+        Assert.Equal("GetById", created.ActionName);
+        Assert.Equal(newDto, created.Value);
     }
 }

@@ -14,4 +14,5 @@ public interface IExerciseRepository
     Task<List<Exercise>> GetAllAsync();
     Task UpdateAsync(Exercise exercise);
     Task DeleteAsync(Guid exerciseId);
+    Task<List<Exercise>> SearchAsync(string query);
 }

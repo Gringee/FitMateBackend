@@ -2,13 +2,13 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using Microsoft.OpenApi.Models;
-using Infrastructure;                              
+using Microsoft.OpenApi.Models;              
 using Infrastructure.Repositories;                 
 using Domain.Interfaces;                            
 using Application.Services;
 using Application.Interfaces;
 using System.Text.Json.Serialization;
+using HealthChecks.NpgSql;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -68,11 +68,15 @@ builder.Services.AddSwaggerGen(c =>
     var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
     c.IncludeXmlComments(xmlPath);
+
+    c.SwaggerDoc("meta", new() { Title = "Meta", Version = "v1" });
 });
 
 //Rejestracja DbContext (PostgreSQL)
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
+
+builder.Services.AddHealthChecks().AddNpgSql(builder.Configuration.GetConnectionString("Default"));
 
 //Rejestracja repozytoriów i serwisów
 builder.Services.AddScoped<IUserRepository, UserRepository>();
@@ -114,6 +118,7 @@ builder.Services
     });
 
 builder.Services.AddAuthorization();
+builder.Services.AddHealthChecks();
 
 //Budowa aplikacji
 var app = builder.Build();
@@ -135,6 +140,8 @@ if (app.Environment.IsDevelopment())
         c.RoutePrefix = "swagger"; // Swagger UI dostêpne pod /swagger
     });
 }
+
+app.MapHealthChecks("/health");
 
 //Redirect do HTTPS
 app.UseHttpsRedirection();

@@ -75,5 +75,37 @@ namespace Application.Services
         public Task DeleteWorkoutAsync(Guid userId, Guid workoutId) =>
             _repo.DeleteAsync(workoutId, userId);
         #endregion
+
+        #region Duplicate
+        public async Task<WorkoutDto?> DuplicateAsync(Guid userId, Guid workoutId, DuplicateWorkoutDto dto)
+        {
+            var src = await _repo.GetByIdAsync(workoutId);
+            if (src is null || src.UserId != userId) return null;
+
+            var copy = new Workout
+            {
+                WorkoutId = Guid.NewGuid(),
+                UserId = userId,
+                WorkoutDate = dto.WorkoutDate ?? DateTime.UtcNow.Date,
+                DurationMinutes = src.DurationMinutes,
+                Notes = dto.Notes ?? src.Notes,
+                Exercises = src.Exercises
+                    .Select(e => new WorkoutExercise
+                    {
+                        WorkoutExerciseId = Guid.NewGuid(),
+                        ExerciseId = e.ExerciseId,
+                        SetNumber = e.SetNumber,
+                        Repetitions = e.Repetitions,
+                        Weight = e.Weight,
+                        DurationSeconds = e.DurationSeconds,
+                        Notes = e.Notes
+                    })
+                    .ToList()
+            };
+
+            await _repo.AddWorkoutAsync(copy);
+            return copy.Adapt<WorkoutDto>();
+        }
+        #endregion
     }
 }

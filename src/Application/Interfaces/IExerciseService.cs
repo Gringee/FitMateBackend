@@ -14,5 +14,6 @@ namespace Application.Interfaces
         Task<ExerciseDto?> GetByIdAsync(Guid id);
         Task<bool> UpdateAsync(Guid id, UpdateExerciseDto dto);
         Task<bool> DeleteAsync(Guid id);
+        Task<List<ExerciseDto>> SearchAsync(string query);
     }
 }

@@ -53,5 +53,10 @@ namespace Application.Services
             await _repo.DeleteAsync(id);
             return true;
         }
+
+        public async Task<List<ExerciseDto>> SearchAsync(string query)
+        {
+            return (await _repo.SearchAsync(query)).Adapt<List<ExerciseDto>>();
+        }
     }
 }

@@ -8,10 +8,7 @@ namespace Infrastructure.Repositories
     {
         private readonly AppDbContext _context;
 
-        public ExerciseRepository(AppDbContext context)
-        {
-            _context = context;
-        }
+        public ExerciseRepository(AppDbContext context) => _context = context;
 
         public async Task<List<Guid>> GetExistingExerciseIdsAsync(IEnumerable<Guid> exerciseIds)
         {
@@ -57,6 +54,18 @@ namespace Infrastructure.Repositories
                 _context.Exercises.Remove(existing);
                 await _context.SaveChangesAsync();
             }
+        }
+
+        public Task<List<Exercise>> SearchAsync(string query)
+        {
+            var q = $"%{query.ToLower()}%";
+
+            return _context.Exercises.AsNoTracking()
+                .Where(e =>
+                    EF.Functions.ILike(e.Name, q) ||
+                    EF.Functions.ILike(e.Description ?? string.Empty, q))
+                .OrderBy(e => e.Name)
+                .ToListAsync();
         }
     }
 }
