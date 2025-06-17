@@ -1,5 +1,6 @@
 ﻿using Application.DTOs;
 using Application.Interfaces;
+using Domain.Enums;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
@@ -91,6 +92,27 @@ public class WorkoutController : ControllerBase
         return result is null
             ? NotFound()
             : CreatedAtAction(nameof(GetById), new { id = result.WorkoutId }, result);
+    }
+
+    /// <summary>
+    /// Aktualizuje status treningu.
+    /// <para>
+    /// Akceptowane wartości: <c>Planned</c>, <c>Completed</c>, <c>Skipped</c>.
+    /// </para>
+    /// </summary>
+    /// <param name="id">Identyfikator treningu.</param>
+    /// <param name="status">Nowy status.</param>
+    /// <response code="204">Status zaktualizowany.</response>
+    /// <response code="404">Trening nie istnieje lub nie należy do użytkownika.</response>
+    [HttpPatch("{id:guid}/status")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SetStatus(Guid id, [FromBody] WorkoutStatus status)
+    {
+        var uid = GetUserId();
+        return await _service.SetStatusAsync(uid, id, status)
+            ? NoContent()
+            : NotFound();
     }
 
     private Guid GetUserId() =>

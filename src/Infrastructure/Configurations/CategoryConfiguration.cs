@@ -6,11 +6,11 @@ namespace Infrastructure.Configurations;
 
 public class CategoryConfiguration : IEntityTypeConfiguration<Category>
 {
-    public void Configure(EntityTypeBuilder<Category> b)
+    public void Configure(EntityTypeBuilder<Category> builder)
     {
-        b.ToTable("categories");
-        b.HasKey(x => x.CategoryId);
-        b.Property(x => x.Name).HasMaxLength(50).IsRequired();
-        b.HasIndex(x => x.Name).IsUnique();
+        builder.ToTable("categories");
+        builder.HasKey(x => x.CategoryId);
+        builder.Property(x => x.Name).HasMaxLength(50).IsRequired();
+        builder.HasIndex(x => x.Name).IsUnique();
     }
 }

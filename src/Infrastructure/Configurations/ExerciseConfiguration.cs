@@ -34,6 +34,8 @@ internal sealed class ExerciseConfiguration : IEntityTypeConfiguration<Exercise>
                .HasForeignKey(e => e.CategoryId)
                .OnDelete(DeleteBehavior.SetNull);
 
-        builder.HasIndex(e => e.Name);
+        builder.HasIndex(e => e.Name)                    
+         .HasDatabaseName("ix_exercises_name_lower")
+         .IsUnique();
     }
 }

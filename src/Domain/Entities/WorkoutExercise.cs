@@ -16,6 +16,7 @@ public class WorkoutExercise
     public int Repetitions { get; set; }
     public decimal Weight { get; set; }
     public int DurationSeconds { get; set; }
+    public int RestSeconds { get; set; } = 90;
     public string? Notes { get; set; }
 
     public Workout Workout { get; set; } = null!;

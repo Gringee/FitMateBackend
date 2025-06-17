@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Http;
 using Application.DTOs;
 using Application.Interfaces;
 using WebApi.Controllers;
+using Domain.Enums;
 
 namespace WebApi.Tests;
 
@@ -154,5 +155,21 @@ public class WorkoutControllerTests
 
         Assert.Equal("GetById", created.ActionName);
         Assert.Equal(newDto, created.Value);
+    }
+
+    [Fact]
+    public async Task SetStatus_ReturnsNoContent()
+    {
+        // Arrange
+        var workoutId = Guid.NewGuid();
+
+        _svc.Setup(s => s.SetStatusAsync(_userId, workoutId, WorkoutStatus.Completed))
+            .ReturnsAsync(true);
+
+        // Act
+        var res = await _ctrl.SetStatus(workoutId, WorkoutStatus.Completed);
+
+        // Assert
+        Assert.IsType<NoContentResult>(res);
     }
 }

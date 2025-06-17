@@ -21,6 +21,10 @@ internal sealed class WorkoutExerciseConfiguration : IEntityTypeConfiguration<Wo
         builder.Property(we => we.Notes)
                .HasColumnType("text");
 
+        builder.Property(x => x.RestSeconds)
+         .HasDefaultValue(90)
+         .IsRequired();
+
         builder.HasOne(we => we.Workout)
                .WithMany(w => w.Exercises)
                .HasForeignKey(we => we.WorkoutId)
@@ -31,7 +35,8 @@ internal sealed class WorkoutExerciseConfiguration : IEntityTypeConfiguration<Wo
                .HasForeignKey(we => we.ExerciseId)
                .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasIndex(we => new { we.WorkoutId, we.SetNumber })
-               .IsUnique();
+        builder.HasIndex(we => new { we.WorkoutId, we.ExerciseId, we.SetNumber })
+       .HasDatabaseName("IX_workout_exercises_WorkoutId_ExerciseId_SetNumber")
+       .IsUnique();
     }
 }

@@ -67,5 +67,15 @@ namespace Infrastructure.Repositories
                 .OrderBy(e => e.Name)
                 .ToListAsync();
         }
+
+        public async Task<Guid> GetIdByNameAsync(string name)
+        {
+            var id = await _context.Exercises
+                        .Where(e => e.Name.ToLower() == name.ToLower())
+                        .Select(e => e.ExerciseId)
+                        .FirstOrDefaultAsync();
+
+            return id == Guid.Empty ? Guid.Empty : id;
+        }
     }
 }

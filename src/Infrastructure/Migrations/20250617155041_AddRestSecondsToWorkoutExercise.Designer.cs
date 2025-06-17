@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -10,9 +11,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250617155041_AddRestSecondsToWorkoutExercise")]
+    partial class AddRestSecondsToWorkoutExercise
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -95,9 +98,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("CategoryId");
 
-                    b.HasIndex("Name")
-                        .IsUnique()
-                        .HasDatabaseName("ix_exercises_name_lower");
+                    b.HasIndex("Name");
 
                     b.ToTable("exercises", (string)null);
                 });
@@ -197,9 +198,8 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("ExerciseId");
 
-                    b.HasIndex("WorkoutId", "ExerciseId", "SetNumber")
-                        .IsUnique()
-                        .HasDatabaseName("IX_workout_exercises_WorkoutId_ExerciseId_SetNumber");
+                    b.HasIndex("WorkoutId", "SetNumber")
+                        .IsUnique();
 
                     b.ToTable("workout_exercises", (string)null);
                 });

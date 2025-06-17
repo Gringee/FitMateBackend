@@ -53,6 +53,7 @@ namespace Infrastructure.Repositories
         {
             return await _context.Workouts
                 .Include(w => w.Exercises)
+                .ThenInclude(we => we.Exercise)
                 .FirstOrDefaultAsync(w => w.WorkoutId == workoutId);
         }
     }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Domain.Enums;
 
 namespace Domain.Entities
 {
@@ -13,6 +14,7 @@ namespace Domain.Entities
         public DateTime WorkoutDate { get; set; }
         public int DurationMinutes { get; set; }
         public string? Notes { get; set; }
+        public WorkoutStatus Status { get; set; } = WorkoutStatus.Planned;
 
         public ICollection<WorkoutExercise> Exercises { get; set; } = new List<WorkoutExercise>();
     }

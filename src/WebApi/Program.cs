@@ -9,6 +9,7 @@ using Application.Services;
 using Application.Interfaces;
 using System.Text.Json.Serialization;
 using HealthChecks.NpgSql;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,6 +28,10 @@ builder.Services.AddCors(options =>
 
 //Rejestracja kontrolerów
 builder.Services.AddControllers();
+
+builder.Services.AddControllers()
+    .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(
+        new JsonStringEnumConverter()));
 
 //Rejestracja Swagger / OpenAPI (raz, z wczytaniem XML)
 builder.Services.AddEndpointsApiExplorer();
