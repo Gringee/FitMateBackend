@@ -1,5 +1,6 @@
 ﻿using Application.DTOs;
 using Application.Interfaces;
+using Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
@@ -24,15 +25,29 @@ public class FrontendController : ControllerBase
     [HttpPost("scheduled")]
     public async Task<IActionResult> SaveScheduled([FromBody] FeScheduledWorkoutDto dto)
     {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
         var userId = Guid.Parse(
             User.FindFirst(ClaimTypes.NameIdentifier)?.Value
             ?? Guid.Empty.ToString());
 
-        var saved = await _svc.SaveScheduledFrontendAsync(dto, userId);
+        try
+        {
+            var saved = await _svc.SaveScheduledFrontendAsync(dto, userId);
 
-        return CreatedAtAction(
-            nameof(GetPlan),
-            new { id = saved.Id },
-            saved);
+            if (saved is null)
+                return StatusCode(StatusCodes.Status500InternalServerError);
+
+            return CreatedAtAction(
+                nameof(GetPlan),
+                new { id = saved.Id },
+                saved);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError,
+                new { message = ex.Message });
+        }
     }
 }

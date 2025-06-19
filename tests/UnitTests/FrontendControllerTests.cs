@@ -1,209 +1,174 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Application.DTOs;
 using Application.Interfaces;
 using Domain.Enums;
+using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using WebApi.Controllers;
 using Xunit;
 
-namespace WebApi.Tests
+namespace UnitTests;
+
+public class FrontendControllerTests
 {
-    public class FrontendControllerTests
+    private static FrontendController ArrangeController(
+        Mock<IWorkoutService> svcMock,
+        Guid? userIdClaim = null)
     {
-        // Helper: kontroler z poprawnym claimem
-        private FrontendController CreateControllerWithUser(Mock<IWorkoutService> svcMock, Guid userId)
+        var controller = new FrontendController(svcMock.Object);
+
+        var httpContext = new DefaultHttpContext();
+        if (userIdClaim is not null)
         {
-            var controller = new FrontendController(svcMock.Object);
-            controller.ControllerContext = new ControllerContext
-            {
-                HttpContext = new DefaultHttpContext
-                {
-                    User = new ClaimsPrincipal(
-                        new ClaimsIdentity(new[]
-                        {
-                            new Claim(ClaimTypes.NameIdentifier, userId.ToString())
-                        }, "test"))
-                }
-            };
-            return controller;
+            httpContext.User = new ClaimsPrincipal(new ClaimsIdentity(
+                new[] { new Claim(ClaimTypes.NameIdentifier, userIdClaim.ToString()!) }));
         }
 
-        // Helper: kontroler BEZ clama NameIdentifier
-        private FrontendController CreateControllerWithoutUser(Mock<IWorkoutService> svcMock)
+        controller.ControllerContext = new ControllerContext
         {
-            var controller = new FrontendController(svcMock.Object);
-            controller.ControllerContext = new ControllerContext
-            {
-                HttpContext = new DefaultHttpContext()
-            };
-            return controller;
-        }
+            HttpContext = httpContext
+        };
 
-        [Fact]
-        public async Task GetPlan_ReturnsNotFound_WhenServiceReturnsNull()
+        return controller;
+    }
+
+    private static FePlanDto SamplePlan(Guid id) => new()
+    {
+        Id = id,
+        Date = "2025-06-20",
+        Time = "18:30",
+        Name = "Leg Day",
+        Type = "strength",
+        Description = "focus on depth"
+    };
+
+    private static FeScheduledWorkoutDto SampleScheduled() => new()
+    {
+        Date = "2025-06-21",
+        Time = "07:00",
+        PlanName = "Morning Cardio",
+        Notes = "Keep HR < 150",
+        Status = WorkoutStatus.Planned
+    };
+
+    [Fact]
+    public async Task GetPlan_returns_200_and_dto_when_service_finds_plan()
+    {
+        var planId = Guid.NewGuid();
+        var dto = SamplePlan(planId);
+        var svcMock = new Mock<IWorkoutService>();
+        svcMock.Setup(s => s.GetPlanFrontendAsync(planId))
+               .ReturnsAsync(dto);
+
+        var controller = ArrangeController(svcMock);
+
+        var result = await controller.GetPlan(planId);
+
+        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+        ok.StatusCode.Should().Be(StatusCodes.Status200OK);
+        ok.Value.Should().BeEquivalentTo(dto);
+
+        svcMock.Verify(s => s.GetPlanFrontendAsync(planId), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetPlan_returns_404_when_service_returns_null()
+    {
+        var planId = Guid.NewGuid();
+        var svcMock = new Mock<IWorkoutService>();
+        svcMock.Setup(s => s.GetPlanFrontendAsync(planId))
+               .ReturnsAsync((FePlanDto?)null);
+
+        var controller = ArrangeController(svcMock);
+
+        var result = await controller.GetPlan(planId);
+
+        result.Should().BeOfType<NotFoundResult>();
+        svcMock.Verify(s => s.GetPlanFrontendAsync(planId), Times.Once);
+    }
+
+    [Fact]
+    public async Task SaveScheduled_returns_201_and_location_with_saved_id()
+    {
+        var userId = Guid.NewGuid();
+        var dtoFromBody = SampleScheduled();
+        var dtoSaved = new FeScheduledWorkoutDto
         {
-            var svcMock = new Mock<IWorkoutService>();
-            svcMock.Setup(s => s.GetPlanFrontendAsync(It.IsAny<Guid>()))
-                   .ReturnsAsync((FePlanDto?)null);
+            Id = Guid.NewGuid(),
+            Date = dtoFromBody.Date,
+            Time = dtoFromBody.Time,
+            PlanName = dtoFromBody.PlanName,
+            Notes = dtoFromBody.Notes,
+            Exercises = dtoFromBody.Exercises,
+            Status = dtoFromBody.Status
+        };
 
-            var controller = CreateControllerWithoutUser(svcMock);
-            var result = await controller.GetPlan(Guid.NewGuid());
+        var svcMock = new Mock<IWorkoutService>();
+        svcMock.Setup(s => s.SaveScheduledFrontendAsync(dtoFromBody, userId))
+               .ReturnsAsync(dtoSaved);
 
-            Assert.IsType<NotFoundResult>(result);
-        }
+        var controller = ArrangeController(svcMock, userId);
 
-        [Fact]
-        public async Task GetPlan_ReturnsOk_WhenServiceReturnsDto()
+        var result = await controller.SaveScheduled(dtoFromBody);
+
+        var created = result.Should().BeOfType<CreatedAtActionResult>().Subject;
+        created.ActionName.Should().Be(nameof(FrontendController.GetPlan));
+        created.RouteValues.Should().ContainKey("id").WhoseValue.Should().Be(dtoSaved.Id);
+        created.Value.Should().Be(dtoSaved);
+        created.StatusCode.Should().Be(StatusCodes.Status201Created);
+
+        svcMock.Verify(s => s.SaveScheduledFrontendAsync(dtoFromBody, userId), Times.Once);
+    }
+
+    [Fact]
+    public async Task SaveScheduled_uses_GuidEmpty_when_user_claim_is_missing()
+    {
+        var dto = SampleScheduled();
+        var saved = new FeScheduledWorkoutDto
         {
-            var svcMock = new Mock<IWorkoutService>();
-            var dto = new FePlanDto {Name = "Plan", Type = "strength", Description = "", Exercises = new List<FeExerciseDto>() };
-            svcMock.Setup(s => s.GetPlanFrontendAsync(It.IsAny<Guid>()))
-                   .ReturnsAsync(dto);
+            Id = Guid.NewGuid(),
+            Date = dto.Date,
+            Time = dto.Time,
+            PlanName = dto.PlanName,
+            Notes = dto.Notes,
+            Exercises = dto.Exercises,
+            Status = dto.Status
+        };
+        var svcMock = new Mock<IWorkoutService>();
+        svcMock.Setup(s => s.SaveScheduledFrontendAsync(dto, Guid.Empty))
+               .ReturnsAsync(saved);
 
-            var controller = CreateControllerWithoutUser(svcMock);
-            var result = await controller.GetPlan(Guid.NewGuid());
+        var controller = ArrangeController(svcMock, userIdClaim: null);
 
-            var ok = Assert.IsType<OkObjectResult>(result);
-            Assert.Equal(dto, ok.Value);
-        }
+        var result = await controller.SaveScheduled(dto);
 
-        [Fact]
-        public async Task SaveScheduled_ReturnsCreatedAtAction_WithCorrectRouteAndValue()
-        {
-            var svcMock = new Mock<IWorkoutService>();
-            var userId = Guid.NewGuid();
-            var inputDto = new FeScheduledWorkoutDto
-            {
-                Date = "2025-06-20",
-                Time = "09:00",
-                PlanName = "Full Body Workout",
-                Exercises = new List<FeExerciseDto>(),
-                Status = WorkoutStatus.Planned
-            };
+        result.Should().BeOfType<CreatedAtActionResult>();
+        svcMock.Verify(s => s.SaveScheduledFrontendAsync(dto, Guid.Empty), Times.Once);
+    }
 
-            var generatedGuid = Guid.NewGuid();
-            var returnedDto = new FeScheduledWorkoutDto
-            {
-                Id = generatedGuid,
-                Date = inputDto.Date,
-                Time = inputDto.Time,
-                PlanName = inputDto.PlanName,
-                Exercises = inputDto.Exercises,
-                Status = inputDto.Status
-            };
+    [Fact]
+    public async Task SaveScheduled_returns_500_when_service_returns_null()
+    {
+        // arrange
+        var userId = Guid.NewGuid();
+        var dto = SampleScheduled();
+        var svcMock = new Mock<IWorkoutService>();
+        svcMock.Setup(s => s.SaveScheduledFrontendAsync(dto, userId))
+               .ReturnsAsync((FeScheduledWorkoutDto?)null);
 
-            svcMock.Setup(s => s.SaveScheduledFrontendAsync(
-                    It.IsAny<FeScheduledWorkoutDto>(),
-                    It.IsAny<Guid>())
-                )
-                .ReturnsAsync(returnedDto);
+        var controller = ArrangeController(svcMock, userId);
 
-            var controller = CreateControllerWithUser(svcMock, userId);
+        // act
+        var result = await controller.SaveScheduled(dto);
 
-            var actionResult = await controller.SaveScheduled(inputDto);
-            var created = Assert.IsType<CreatedAtActionResult>(actionResult);
+        // assert
+        var res = result.Should().BeOfType<StatusCodeResult>().Subject;
+        res.StatusCode.Should().Be(StatusCodes.Status500InternalServerError);
 
-            Assert.Equal(nameof(FrontendController.GetPlan), created.ActionName);
-            Assert.True(created.RouteValues.ContainsKey("id"));
-            Assert.Equal(generatedGuid, Guid.Parse(created.RouteValues["id"]!.ToString()));
-
-            var value = Assert.IsType<FeScheduledWorkoutDto>(created.Value);
-            Assert.Equal(generatedGuid, value.Id);
-            Assert.Equal(inputDto.PlanName, value.PlanName);
-            Assert.Equal(WorkoutStatus.Planned, value.Status);
-        }
-
-        [Fact]
-        public async Task SaveScheduled_CallsServiceWithCorrectParams()
-        {
-            var svcMock = new Mock<IWorkoutService>();
-            var userId = Guid.NewGuid();
-            var inputDto = new FeScheduledWorkoutDto
-            {
-                Date = "2025-07-01",
-                Time = "10:30",
-                PlanName = "Test Plan",
-                Exercises = new List<FeExerciseDto>(),
-                Status = WorkoutStatus.Planned
-            };
-
-            FeScheduledWorkoutDto? passedDto = null;
-            Guid passedUser = Guid.Empty;
-
-            svcMock
-                .Setup(s => s.SaveScheduledFrontendAsync(
-                    It.IsAny<FeScheduledWorkoutDto>(),
-                    It.IsAny<Guid>()))
-                .Callback<FeScheduledWorkoutDto, Guid>((dto, uid) =>
-                {
-                    passedDto = dto;
-                    passedUser = uid;
-                })
-                .ReturnsAsync(inputDto);
-
-            var controller = CreateControllerWithUser(svcMock, userId);
-            await controller.SaveScheduled(inputDto);
-
-            svcMock.Verify(s => s.SaveScheduledFrontendAsync(It.IsAny<FeScheduledWorkoutDto>(), It.IsAny<Guid>()), Times.Once);
-            Assert.Same(inputDto, passedDto);
-            Assert.Equal(userId, passedUser);
-        }
-
-        [Fact]
-        public async Task SaveScheduled_UsesEmptyGuid_WhenClaimMissing()
-        {
-            var svcMock = new Mock<IWorkoutService>();
-            var inputDto = new FeScheduledWorkoutDto
-            {
-                Date = "2025-08-01",
-                Time = "08:00",
-                PlanName = "No Claim",
-                Exercises = new List<FeExerciseDto>(),
-                Status = WorkoutStatus.Planned
-            };
-
-            Guid passedUser = Guid.NewGuid();
-            svcMock
-                .Setup(s => s.SaveScheduledFrontendAsync(
-                    It.IsAny<FeScheduledWorkoutDto>(),
-                    It.IsAny<Guid>()))
-                .Callback<FeScheduledWorkoutDto, Guid>((_, uid) => passedUser = uid)
-                .ReturnsAsync(inputDto);
-
-            var controller = CreateControllerWithoutUser(svcMock);
-            await controller.SaveScheduled(inputDto);
-
-            Assert.Equal(Guid.Empty, passedUser);
-        }
-
-        [Fact]
-        public async Task SaveScheduled_Throws_WhenServiceThrows()
-        {
-            var svcMock = new Mock<IWorkoutService>();
-            var userId = Guid.NewGuid();
-            var inputDto = new FeScheduledWorkoutDto
-            {
-                Date = "2025-09-01",
-                Time = "12:00",
-                PlanName = "Error Case",
-                Exercises = new List<FeExerciseDto>(),
-                Status = WorkoutStatus.Planned
-            };
-
-            svcMock
-                .Setup(s => s.SaveScheduledFrontendAsync(inputDto, userId))
-                .ThrowsAsync(new InvalidOperationException("service failure"));
-
-            var controller = CreateControllerWithUser(svcMock, userId);
-
-            var ex = await Assert.ThrowsAsync<InvalidOperationException>(
-                () => controller.SaveScheduled(inputDto));
-            Assert.Equal("service failure", ex.Message);
-        }
+        svcMock.Verify(s => s.SaveScheduledFrontendAsync(dto, userId), Times.Once);
     }
 }
