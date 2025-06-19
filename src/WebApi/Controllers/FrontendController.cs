@@ -50,4 +50,31 @@ public class FrontendController : ControllerBase
                 new { message = ex.Message });
         }
     }
+
+    /// <summary>Wszystkie plany użytkownika na wskazany dzień (parametr „date” w formacie YYYY-MM-DD).</summary>
+    [HttpGet("plans")]
+    public async Task<IActionResult> GetPlansForDay([FromQuery] string date)
+    {
+        if (!DateOnly.TryParseExact(date, "yyyy-MM-dd", out var day))
+            return BadRequest("date must be in YYYY-MM-DD format");
+
+        var userId = Guid.Parse(
+            User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? Guid.Empty.ToString());
+
+        var list = await _svc.GetPlansByDateAsync(userId, day);
+        return Ok(list);
+    }
+
+    /// <summary>Wszystkie dni (z id-kami), w których użytkownik ma trening.</summary>
+    [HttpGet("days")]
+    public async Task<IActionResult> GetWorkoutDays()
+    {
+        var userId = Guid.Parse(
+            User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? Guid.Empty.ToString());
+
+        var list = await _svc.GetAllWorkoutDaysAsync(userId);
+        return Ok(list);
+    }
 }

@@ -149,13 +149,12 @@ namespace Application.Services
             };
         }
 
-        #region Frontend Scheduling
         public async Task<FeScheduledWorkoutDto?> SaveScheduledFrontendAsync(
             FeScheduledWorkoutDto dto,
             Guid userId)
         {
             var timePart = string.IsNullOrWhiteSpace(dto.Time) ? "00:00" : dto.Time;
-            var dateTimeString = $"{dto.Date} {timePart}"; 
+            var dateTimeString = $"{dto.Date} {timePart}";
             var local = DateTime.ParseExact(
                 dateTimeString,
                 "yyyy-MM-dd HH:mm",
@@ -192,7 +191,6 @@ namespace Application.Services
                 resolved.Add((exerciseId, ex));
             }
 
-            // Build WorkoutExercise entities
             var workoutExercises = resolved.SelectMany(tuple =>
             {
                 var (exerciseId, ex) = tuple;
@@ -214,6 +212,51 @@ namespace Application.Services
             dto.Id = workout.WorkoutId;
             return dto;
         }
-        #endregion
+
+        public async Task<List<FePlanDto>> GetPlansByDateAsync(Guid userId, DateOnly date)
+        {
+            var startLocal = date.ToDateTime(TimeOnly.MinValue);
+            var endLocal = date.ToDateTime(TimeOnly.MaxValue);
+
+            var startUtc = startLocal.ToUniversalTime();
+            var endUtc = endLocal.ToUniversalTime();
+
+            var workouts = await _repo.GetByUserAndRangeAsync(userId, startUtc, endUtc);
+
+            return workouts.Select(w => new FePlanDto
+            {
+                Id = w.WorkoutId,
+                Date = w.WorkoutDate.ToLocalTime().ToString("yyyy-MM-dd"),
+                Time = w.WorkoutDate.ToLocalTime().ToString("HH:mm"),
+                Name = w.Name ?? $"Workout {w.WorkoutDate:d}",
+                Type = "strength",
+                Description = w.Notes ?? string.Empty,
+                Exercises = w.Exercises
+                                .OrderBy(e => e.SetNumber)
+                                .GroupBy(e => e.ExerciseId)
+                                .Select(g => new FeExerciseDto
+                                {
+                                    Name = g.First().Exercise.Name,
+                                    Rest = g.First().RestSeconds,
+                                    Sets = g.Select(x => new FeSetDetailsDto
+                                    {
+                                        Reps = x.Repetitions,
+                                        Weight = x.Weight
+                                    }).ToList()
+                                }).ToList()
+            }).ToList();
+        }
+
+        public async Task<List<DayWorkoutRefDto>> GetAllWorkoutDaysAsync(Guid userId)
+        {
+            var list = await _repo.GetIdsAndDatesAsync(userId);
+
+            return list.Select(w => new DayWorkoutRefDto
+            {
+                Id = w.Id,
+                Date = w.Date.ToLocalTime().ToString("yyyy-MM-dd")
+            })
+                    .ToList();
+        }
     }
 }

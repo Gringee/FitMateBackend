@@ -39,3 +39,9 @@ public class FeScheduledWorkoutDto
     public List<FeExerciseDto> Exercises { get; set; } = new();
     public WorkoutStatus Status { get; set; }
 }
+
+public class DayWorkoutRefDto
+{
+    public Guid Id { get; set; }
+    public string Date { get; set; } = null!;   // „YYYY-MM-DD”
+}

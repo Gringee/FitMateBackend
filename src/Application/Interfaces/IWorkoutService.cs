@@ -16,5 +16,7 @@ namespace Application.Interfaces
         Task<WorkoutDto?> DuplicateAsync(Guid userId, Guid workoutId, DuplicateWorkoutDto dto);
         Task<FePlanDto?> GetPlanFrontendAsync(Guid workoutId);
         Task<FeScheduledWorkoutDto?> SaveScheduledFrontendAsync(FeScheduledWorkoutDto dto, Guid userId);
+        Task<List<FePlanDto>> GetPlansByDateAsync(Guid userId, DateOnly date);
+        Task<List<DayWorkoutRefDto>> GetAllWorkoutDaysAsync(Guid userId);
     }
 }

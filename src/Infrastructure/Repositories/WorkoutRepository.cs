@@ -56,5 +56,20 @@ namespace Infrastructure.Repositories
                 .ThenInclude(we => we.Exercise)
                 .FirstOrDefaultAsync(w => w.WorkoutId == workoutId);
         }
+
+        public Task<List<Workout>> GetByUserAndRangeAsync(Guid userId, DateTime startUtc, DateTime endUtc) =>
+            _context.Workouts
+            .Include(w => w.Exercises)
+            .ThenInclude(we => we.Exercise)
+            .Where(w => w.UserId == userId &&
+                    w.WorkoutDate >= startUtc &&
+                    w.WorkoutDate <= endUtc)
+            .ToListAsync();
+
+        public Task<List<(Guid Id, DateTime Date)>> GetIdsAndDatesAsync(Guid userId) =>
+            _context.Workouts
+            .Where(w => w.UserId == userId)
+            .Select(w => new ValueTuple<Guid, DateTime>(w.WorkoutId, w.WorkoutDate))
+            .ToListAsync();
     }
 }

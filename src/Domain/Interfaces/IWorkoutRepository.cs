@@ -14,4 +14,6 @@ public interface IWorkoutRepository
     Task<Workout?> GetByIdAsync(Guid workoutId);
     Task UpdateAsync(Workout workout);
     Task DeleteAsync(Guid workoutId, Guid userId);
+    Task<List<Workout>> GetByUserAndRangeAsync(Guid userId, DateTime startUtc, DateTime endUtc);
+    Task<List<(Guid Id, DateTime Date)>> GetIdsAndDatesAsync(Guid userId);
 }

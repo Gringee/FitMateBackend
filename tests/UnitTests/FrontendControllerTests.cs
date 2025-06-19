@@ -171,4 +171,49 @@ public class FrontendControllerTests
 
         svcMock.Verify(s => s.SaveScheduledFrontendAsync(dto, userId), Times.Once);
     }
+
+    [Fact]
+    public async Task GetPlansForDay_returns_list_for_valid_date()
+    {
+        // arrange
+        var userId = Guid.NewGuid();
+        var dateStr = "2025-06-22";
+        var dtoList = new List<FePlanDto> { new() { Id = Guid.NewGuid(), Date = dateStr, Name = "Test" } };
+
+        var svcMock = new Mock<IWorkoutService>();
+        svcMock.Setup(s => s.GetPlansByDateAsync(userId, DateOnly.Parse(dateStr))).ReturnsAsync(dtoList);
+
+        var ctrl = ArrangeController(svcMock, userId);
+
+        // act
+        var result = await ctrl.GetPlansForDay(dateStr);
+
+        // assert
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(dtoList, ok.Value);
+    }
+
+    [Fact]
+    public async Task GetWorkoutDays_returns_list_from_service()
+    {
+        // arrange
+        var userId = Guid.NewGuid();
+        var expected = new List<DayWorkoutRefDto>
+    {
+        new() { Id = Guid.NewGuid(), Date = "2025-06-22" },
+        new() { Id = Guid.NewGuid(), Date = "2025-06-24" }
+    };
+
+        var svcMock = new Mock<IWorkoutService>();
+        svcMock.Setup(s => s.GetAllWorkoutDaysAsync(userId)).ReturnsAsync(expected);
+
+        var ctrl = ArrangeController(svcMock, userId);
+
+        // act
+        var result = await ctrl.GetWorkoutDays();
+
+        // assert
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(expected, ok.Value);
+    }
 }
