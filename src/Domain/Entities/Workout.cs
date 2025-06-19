@@ -13,6 +13,7 @@ namespace Domain.Entities
         public Guid UserId { get; set; }
         public DateTime WorkoutDate { get; set; }
         public int DurationMinutes { get; set; }
+        public string? Name { get; set; }
         public string? Notes { get; set; }
         public WorkoutStatus Status { get; set; } = WorkoutStatus.Planned;
 

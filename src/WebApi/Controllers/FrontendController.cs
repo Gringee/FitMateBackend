@@ -30,7 +30,6 @@ public class FrontendController : ControllerBase
 
         var saved = await _svc.SaveScheduledFrontendAsync(dto, userId);
 
-        // teraz `saved.Id` jest Guidiem i wpasuje się w GET /api/frontend/plan/{id:guid}
         return CreatedAtAction(
             nameof(GetPlan),
             new { id = saved.Id },

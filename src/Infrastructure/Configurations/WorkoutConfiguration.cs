@@ -16,6 +16,11 @@ internal sealed class WorkoutConfiguration : IEntityTypeConfiguration<Workout>
         builder.Property(w => w.WorkoutDate).IsRequired();
         builder.Property(w => w.DurationMinutes).IsRequired();
 
+        builder.Property(w => w.Name)
+       .HasColumnType("text")
+       .HasMaxLength(100)   
+       .IsRequired(false);
+
         builder.Property(w => w.Notes)
                .HasColumnType("text");
 

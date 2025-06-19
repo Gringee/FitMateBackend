@@ -61,7 +61,7 @@ namespace WebApi.Tests
         public async Task GetPlan_ReturnsOk_WhenServiceReturnsDto()
         {
             var svcMock = new Mock<IWorkoutService>();
-            var dto = new FePlanDto { Id = 1, Name = "Plan", Type = "strength", Description = "", Exercises = new List<FeExerciseDto>() };
+            var dto = new FePlanDto {Name = "Plan", Type = "strength", Description = "", Exercises = new List<FeExerciseDto>() };
             svcMock.Setup(s => s.GetPlanFrontendAsync(It.IsAny<Guid>()))
                    .ReturnsAsync(dto);
 
@@ -81,7 +81,6 @@ namespace WebApi.Tests
             {
                 Date = "2025-06-20",
                 Time = "09:00",
-                PlanId = 3,
                 PlanName = "Full Body Workout",
                 Exercises = new List<FeExerciseDto>(),
                 Status = WorkoutStatus.Planned
@@ -93,7 +92,6 @@ namespace WebApi.Tests
                 Id = generatedGuid,
                 Date = inputDto.Date,
                 Time = inputDto.Time,
-                PlanId = inputDto.PlanId,
                 PlanName = inputDto.PlanName,
                 Exercises = inputDto.Exercises,
                 Status = inputDto.Status
@@ -129,7 +127,6 @@ namespace WebApi.Tests
             {
                 Date = "2025-07-01",
                 Time = "10:30",
-                PlanId = 5,
                 PlanName = "Test Plan",
                 Exercises = new List<FeExerciseDto>(),
                 Status = WorkoutStatus.Planned
@@ -165,7 +162,6 @@ namespace WebApi.Tests
             {
                 Date = "2025-08-01",
                 Time = "08:00",
-                PlanId = 7,
                 PlanName = "No Claim",
                 Exercises = new List<FeExerciseDto>(),
                 Status = WorkoutStatus.Planned
@@ -194,7 +190,6 @@ namespace WebApi.Tests
             {
                 Date = "2025-09-01",
                 Time = "12:00",
-                PlanId = 9,
                 PlanName = "Error Case",
                 Exercises = new List<FeExerciseDto>(),
                 Status = WorkoutStatus.Planned

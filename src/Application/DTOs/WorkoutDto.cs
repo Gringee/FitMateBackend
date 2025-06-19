@@ -10,6 +10,7 @@ namespace Application.DTOs
         public Guid UserId { get; set; }
         public DateTime WorkoutDate { get; set; }
         public int DurationMinutes { get; set; }
+        public string? Name { get; set; }
         public string? Notes { get; set; }
         public WorkoutStatus Status { get; set; } = WorkoutStatus.Planned;
 
@@ -19,6 +20,7 @@ namespace Application.DTOs
     {
         public DateTime WorkoutDate { get; set; }
         public int DurationMinutes { get; set; }
+        public string? Name { get; set; }
         public string? Notes { get; set; }
         public List<WorkoutExerciseDto> Exercises { get; set; } = new();
     }
@@ -31,6 +33,7 @@ namespace Application.DTOs
     public class DuplicateWorkoutDto
     {
         public DateTime? WorkoutDate { get; set; }
+        public string? Name { get; set; }
         public string? Notes { get; set; }
     }
 

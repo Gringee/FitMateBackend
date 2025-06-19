@@ -84,6 +84,7 @@ namespace Application.Services
                 UserId = userId,
                 WorkoutDate = dto.WorkoutDate ?? DateTime.UtcNow.Date,
                 DurationMinutes = src.DurationMinutes,
+                Name = dto.Name ?? src.Name,
                 Notes = dto.Notes ?? src.Notes,
                 Exercises = src.Exercises
                     .Select(e => new WorkoutExercise
@@ -126,8 +127,10 @@ namespace Application.Services
 
             return new FePlanDto
             {
-                Id = (int)(w.WorkoutId.GetHashCode() & int.MaxValue),
-                Name = $"Workout {w.WorkoutDate:d}",
+                Id = w.WorkoutId,
+                Date = w.WorkoutDate.ToString("yyyy-MM-dd"),
+                Time = w.WorkoutDate.ToString("HH:mm"),
+                Name = w.Name ?? $"Workout {w.WorkoutDate:d}",
                 Type = "strength",
                 Description = w.Notes ?? string.Empty,
                 Exercises = w.Exercises
@@ -151,9 +154,8 @@ namespace Application.Services
             FeScheduledWorkoutDto dto,
             Guid userId)
         {
-            // Parse date and time, assume local then convert to UTC
             var timePart = string.IsNullOrWhiteSpace(dto.Time) ? "00:00" : dto.Time;
-            var dateTimeString = $"{dto.Date} {timePart}"; // e.g. "2025-06-04 13:20"
+            var dateTimeString = $"{dto.Date} {timePart}"; 
             var local = DateTime.ParseExact(
                 dateTimeString,
                 "yyyy-MM-dd HH:mm",
@@ -167,19 +169,17 @@ namespace Application.Services
                 UserId = userId,
                 WorkoutDate = workoutDateUtc,
                 Status = dto.Status,
-                Notes = dto.PlanName,
+                Name = dto.PlanName,
+                Notes = dto.Notes,
                 DurationMinutes = dto.Exercises.Sum(e => e.Sets.Count * 2)
             };
 
-            // Process exercises sequentially to avoid DbContext concurrency issues
             var resolved = new List<(Guid ExerciseId, FeExerciseDto Ex)>();
             foreach (var ex in dto.Exercises)
             {
-                // Try to get existing exercise
                 var exerciseId = await _exerciseRepo.GetIdByNameAsync(ex.Name);
                 if (exerciseId == Guid.Empty)
                 {
-                    // Create new exercise if not found
                     var newEx = new Exercise
                     {
                         ExerciseId = Guid.NewGuid(),
