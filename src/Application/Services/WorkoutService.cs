@@ -130,9 +130,8 @@ namespace Application.Services
                 Id = w.WorkoutId,
                 Date = w.WorkoutDate.ToString("yyyy-MM-dd"),
                 Time = w.WorkoutDate.ToString("HH:mm"),
-                Name = w.Name ?? $"Workout {w.WorkoutDate:d}",
-                Type = "strength",
-                Description = w.Notes ?? string.Empty,
+                PlanName = w.Name ?? $"Workout {w.WorkoutDate:d}",
+                Notes = w.Notes ?? string.Empty,
                 Exercises = w.Exercises
                     .OrderBy(e => e.SetNumber)
                     .GroupBy(e => e.ExerciseId)
@@ -228,9 +227,8 @@ namespace Application.Services
                 Id = w.WorkoutId,
                 Date = w.WorkoutDate.ToLocalTime().ToString("yyyy-MM-dd"),
                 Time = w.WorkoutDate.ToLocalTime().ToString("HH:mm"),
-                Name = w.Name ?? $"Workout {w.WorkoutDate:d}",
-                Type = "strength",
-                Description = w.Notes ?? string.Empty,
+                PlanName = w.Name ?? $"Workout {w.WorkoutDate:d}",
+                Notes = w.Notes ?? string.Empty,
                 Exercises = w.Exercises
                                 .OrderBy(e => e.SetNumber)
                                 .GroupBy(e => e.ExerciseId)
