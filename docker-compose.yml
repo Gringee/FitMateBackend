@@ -1,0 +1,41 @@
+networks:
+  FitMate-net: {}   # Compose stworzy swoją sieć
+
+volumes:
+  pg_FitMate_data: {}
+
+services:
+  db:
+    image: postgres:16
+    container_name: tp-postgres
+    restart: unless-stopped
+    networks: [FitMate-net]
+    environment:
+      POSTGRES_USER: training
+      POSTGRES_PASSWORD: devpass
+      POSTGRES_DB: fitmatedb
+    ports:
+      - "5433:5432"
+    volumes:
+      - pg_FitMate_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U training -d fitmatedb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: src/WebApi/Dockerfile   # <— ważne: ścieżka względna, slashe
+    container_name: fitmate-backend
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [FitMate-net]
+    environment:
+      ConnectionStrings__Default: Host=db;Port=5432;Database=fitmatedb;Username=training;Password=devpass;Include Error Detail=true
+      ASPNETCORE_URLS: http://+:8080
+      ASPNETCORE_ENVIRONMENT: Production
+    ports:
+      - "8080:8080"
