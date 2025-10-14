@@ -22,5 +22,5 @@ Upewnij się, że masz zainstalowane:
 
 ### 2️⃣ Klonowanie repozytorium
 ```bash
-git clone https://github.com/<twoj-user>/FitMateBackend.git
+git clone https://github.com/Gringee/FitMateBackend.git
 cd FitMateBackend
