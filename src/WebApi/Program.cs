@@ -24,9 +24,17 @@ var policyName = "ViteDev";
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(policyName, p =>
-        p.WithOrigins("http://localhost:5173")
-         .AllowAnyHeader()
-         .AllowAnyMethod());
+    p.SetIsOriginAllowed(origin =>
+    {
+        try
+        {
+            var uri = new Uri(origin);
+            return uri.Host == "localhost";
+        }
+        catch { return false; }
+    })
+    .AllowAnyHeader()
+    .AllowAnyMethod());
 });
 
 
