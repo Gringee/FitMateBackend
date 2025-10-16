@@ -20,7 +20,19 @@ builder.Services.AddControllers();
 builder.Services.AddScoped<IPlanService, PlanService>();
 builder.Services.AddScoped<IScheduledService, ScheduledService>();
 
+var policyName = "ViteDev";
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(policyName, p =>
+        p.WithOrigins("http://localhost:5173")
+         .AllowAnyHeader()
+         .AllowAnyMethod());
+});
+
+
 var app = builder.Build();
+
+app.UseCors(policyName);
 
 app.UseSwagger();
 app.UseSwaggerUI();
@@ -31,6 +43,8 @@ app.MapGet("/health/db", async (AppDbContext db, CancellationToken ct) =>
     var can = await db.Database.CanConnectAsync(ct);
     return can ? Results.Ok(new { db = "ok" }) : Results.Problem("DB not reachable");
 });
+
+
 
 // map controllers
 app.MapControllers();
