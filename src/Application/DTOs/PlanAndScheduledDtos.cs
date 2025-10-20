@@ -17,6 +17,7 @@ public class PlanDto
 {
     public Guid Id { get; set; }
     public string PlanName { get; set; } = null!;
+    public string Type { get; set; } = null!;
     public string? Notes { get; set; }
     public List<ExerciseDto> Exercises { get; set; } = new();
 }
@@ -24,6 +25,7 @@ public class PlanDto
 public class CreatePlanDto
 {
     public string PlanName { get; set; } = null!;
+    public string Type { get; set; } = null!;
     public string? Notes { get; set; }
     public List<ExerciseDto> Exercises { get; set; } = new();
 }

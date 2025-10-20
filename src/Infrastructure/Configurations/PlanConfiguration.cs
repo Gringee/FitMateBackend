@@ -11,6 +11,7 @@ public sealed class PlanConfiguration : IEntityTypeConfiguration<Plan>
         builder.ToTable("plans");
         builder.HasKey(p => p.Id);
         builder.Property(p => p.PlanName).HasMaxLength(200).IsRequired();
+        builder.Property(p => p.Type).HasMaxLength(100).IsRequired();
         builder.Property(p => p.Notes).HasColumnType("text");
 
         builder.HasMany(p => p.Exercises)

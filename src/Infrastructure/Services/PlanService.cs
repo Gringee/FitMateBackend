@@ -12,7 +12,7 @@ public sealed class PlanService(AppDbContext db) : IPlanService
 
     public async Task<PlanDto> CreateAsync(CreatePlanDto dto, CancellationToken ct = default)
     {
-        var plan = new Plan { Id = Guid.NewGuid(), PlanName = dto.PlanName, Notes = dto.Notes };
+        var plan = new Plan { Id = Guid.NewGuid(), PlanName = dto.PlanName, Type = dto.Type, Notes = dto.Notes };
         foreach (var ex in dto.Exercises)
         {
             var pe = new PlanExercise
@@ -67,6 +67,7 @@ public sealed class PlanService(AppDbContext db) : IPlanService
         if (plan is null) return null;
 
         plan.PlanName = dto.PlanName;
+        plan.Type = dto.Type;
         plan.Notes = dto.Notes;
 
         _db.RemoveRange(plan.Exercises.SelectMany(e => e.Sets));
@@ -155,6 +156,7 @@ public sealed class PlanService(AppDbContext db) : IPlanService
     {
         Id = p.Id,
         PlanName = p.PlanName,
+        Type = p.Type,            
         Notes = p.Notes,
         Exercises = p.Exercises
             .OrderBy(e => e.Id)
