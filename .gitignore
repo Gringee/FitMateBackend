@@ -1,18 +1,10 @@
-# Visual Studio
 .vs/
-*.user
-*.suo
-
-# Build folders
 bin/
 obj/
-
-# Logs
+**/bin/
+**/obj/
+*.user
+*.suo
 *.log
-
-# Temporary files
-*.cache
 *.tmp
-
-# Publish output
-publish/
+*.cache
