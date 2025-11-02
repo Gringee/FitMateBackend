@@ -1,0 +1,600 @@
+openapi: 3.0.3
+info:
+  title: FitMateBackend API
+  version: "2.0.0"
+  description: |
+    Backend API for training plans, scheduled workouts and workout sessions.
+    This spec uses **camelCase** field names (as confirmed by the frontend).
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+paths:
+  /api/plans:
+    get:
+      summary: Get all plans
+      tags: [Plans]
+      responses:
+        '200':
+          description: List of plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlanDto'
+    post:
+      summary: Create a plan
+      tags: [Plans]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePlanRequest'
+      responses:
+        '201':
+          description: Created plan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanDto'
+        '400':
+          description: Validation error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/plans/{id}:
+    get:
+      summary: Get plan by id
+      tags: [Plans]
+      parameters:
+        - in: path
+          name: id
+          schema: { type: string, format: uuid }
+          required: true
+      responses:
+        '200':
+          description: Plan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanDto'
+        '404':
+          description: Not found
+    put:
+      summary: Update plan
+      tags: [Plans]
+      parameters:
+        - in: path
+          name: id
+          schema: { type: string, format: uuid }
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePlanRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanDto'
+        '400':
+          description: Validation error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not found
+    delete:
+      summary: Delete plan
+      tags: [Plans]
+      parameters:
+        - in: path
+          name: id
+          schema: { type: string, format: uuid }
+          required: true
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          description: Not found
+
+  /api/plans/{id}/duplicate:
+    post:
+      summary: Duplicate plan
+      tags: [Plans]
+      parameters:
+        - in: path
+          name: id
+          schema: { type: string, format: uuid }
+          required: true
+      responses:
+        '201':
+          description: Duplicated plan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanDto'
+        '404':
+          description: Not found
+
+  /api/scheduled:
+    get:
+      summary: Get all scheduled workouts
+      tags: [Scheduled]
+      responses:
+        '200':
+          description: List of scheduled workouts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ScheduledDto'
+    post:
+      summary: Create scheduled workout
+      tags: [Scheduled]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateScheduledRequest'
+      responses:
+        '201':
+          description: Created scheduled workout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledDto'
+        '400':
+          description: Validation error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/scheduled/by-date:
+    get:
+      summary: Get all scheduled workouts for a given date
+      tags: [Scheduled]
+      parameters:
+        - in: query
+          name: date
+          required: true
+          schema: { type: string, format: date }
+          description: Date in YYYY-MM-DD
+      responses:
+        '200':
+          description: List for the given date
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ScheduledDto'
+
+  /api/scheduled/{id}:
+    get:
+      summary: Get scheduled workout by id
+      tags: [Scheduled]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Scheduled workout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledDto'
+        '404':
+          description: Not found
+    put:
+      summary: Update scheduled workout
+      tags: [Scheduled]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateScheduledRequest'
+      responses:
+        '200':
+          description: Updated scheduled workout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledDto'
+        '400':
+          description: Validation error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not found
+    delete:
+      summary: Delete scheduled workout
+      tags: [Scheduled]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          description: Not found
+
+  /api/scheduled/{id}/duplicate:
+    post:
+      summary: Duplicate scheduled workout
+      tags: [Scheduled]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '201':
+          description: Duplicated scheduled workout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledDto'
+        '404':
+          description: Not found
+
+  /api/sessions/start:
+    post:
+      summary: Start a workout session from a scheduled workout
+      tags: [Sessions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartSessionRequest'
+      responses:
+        '200':
+          description: Session started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkoutSessionDto'
+        '404':
+          description: Scheduled workout not found
+  /api/sessions/{id}/set:
+    patch:
+      summary: Update single set during a session
+      tags: [Sessions]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchSetRequest'
+      responses:
+        '200':
+          description: Updated session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkoutSessionDto'
+        '400':
+          description: Invalid state or validation error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not found
+  /api/sessions/{id}/complete:
+    post:
+      summary: Complete a workout session
+      tags: [Sessions]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteSessionRequest'
+      responses:
+        '200':
+          description: Completed session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkoutSessionDto'
+        '400':
+          description: Invalid state
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not found
+  /api/sessions/{id}:
+    get:
+      summary: Get session by id
+      tags: [Sessions]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkoutSessionDto'
+        '404':
+          description: Not found
+  /api/sessions/by-range:
+    get:
+      summary: Get sessions by time range (UTC)
+      tags: [Sessions]
+      parameters:
+        - in: query
+          name: from
+          required: true
+          schema: { type: string, format: date-time }
+          description: Start (inclusive), ISO-8601 UTC
+        - in: query
+          name: to
+          required: true
+          schema: { type: string, format: date-time }
+          description: End (exclusive), ISO-ISO8601 UTC
+      responses:
+        '200':
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkoutSessionDto'
+
+components:
+  schemas:
+    ProblemDetails:
+      type: object
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer, format: int32 }
+        detail: { type: string }
+        instance: { type: string }
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items: { type: string }
+
+    # ---------- Plans ----------
+    PlanDto:
+      allOf:
+        - $ref: '#/components/schemas/PlanBase'
+        - type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+          required: [id, planName, type, exercises]
+    PlanBase:
+      type: object
+      properties:
+        planName:
+          type: string
+          example: FBW Base
+        type:
+          type: string
+          example: FBW
+        notes:
+          type: string
+          nullable: true
+        exercises:
+          type: array
+          items:
+            $ref: '#/components/schemas/Exercise'
+      required: [planName, type, exercises]
+
+    CreatePlanRequest:
+      $ref: '#/components/schemas/PlanBase'
+    UpdatePlanRequest:
+      $ref: '#/components/schemas/PlanBase'
+
+    Exercise:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Squat
+        rest:
+          type: integer
+          format: int32
+          example: 90
+        sets:
+          type: array
+          items:
+            $ref: '#/components/schemas/SetItem'
+      required: [name, rest, sets]
+
+    SetItem:
+      type: object
+      properties:
+        reps:
+          type: integer
+          format: int32
+          example: 5
+        weight:
+          type: number
+          format: double
+          example: 60
+      required: [reps, weight]
+
+    # ---------- Scheduled Workouts ----------
+    ScheduledDto:
+      allOf:
+        - $ref: '#/components/schemas/ScheduledBase'
+        - type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+          required: [id, date, planId, planName, status]
+    ScheduledBase:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        time:
+          type: string
+          nullable: true
+          pattern: '^(?:[01]\d|2[0-3]):[0-5]\d$'
+          example: "18:00"
+        planId:
+          type: string
+          format: uuid
+        planName:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        exercises:
+          type: array
+          items:
+            $ref: '#/components/schemas/Exercise'
+        status:
+          type: string
+          description: planned or completed
+          enum: [planned, completed]
+          default: planned
+      required: [date, planId, planName]
+
+    CreateScheduledRequest:
+      allOf:
+        - $ref: '#/components/schemas/ScheduledBase'
+    UpdateScheduledRequest:
+      allOf:
+        - $ref: '#/components/schemas/ScheduledBase'
+
+    # ---------- Sessions (Execution) ----------
+    StartSessionRequest:
+      type: object
+      properties:
+        scheduledId:
+          type: string
+          format: uuid
+      required: [scheduledId]
+
+    PatchSetRequest:
+      type: object
+      properties:
+        exerciseOrder:
+          type: integer
+          format: int32
+        setNumber:
+          type: integer
+          format: int32
+        repsDone:
+          type: integer
+          format: int32
+          nullable: true
+        weightDone:
+          type: number
+          format: double
+          nullable: true
+        rpe:
+          type: number
+          format: double
+          nullable: true
+        isFailure:
+          type: boolean
+          nullable: true
+      required: [exerciseOrder, setNumber]
+
+    CompleteSessionRequest:
+      type: object
+      properties:
+        sessionNotes:
+          type: string
+          nullable: true
+        completedAtUtc:
+          type: string
+          format: date-time
+          nullable: true
+
+    WorkoutSessionDto:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        scheduledId: { type: string, format: uuid }
+        startedAtUtc: { type: string, format: date-time }
+        completedAtUtc: { type: string, format: date-time, nullable: true }
+        durationSec: { type: integer, format: int32, nullable: true }
+        status:
+          type: string
+          enum: [in_progress, completed, aborted]
+        sessionNotes: { type: string, nullable: true }
+        exercises:
+          type: array
+          items:
+            $ref: '#/components/schemas/SessionExerciseDto'
+      required: [id, scheduledId, startedAtUtc, status, exercises]
+
+    SessionExerciseDto:
+      type: object
+      properties:
+        order: { type: integer, format: int32 }
+        name: { type: string }
+        restSecPlanned: { type: integer, format: int32 }
+        restSecActual: { type: integer, format: int32, nullable: true }
+        sets:
+          type: array
+          items:
+            $ref: '#/components/schemas/SessionSetDto'
+      required: [order, name, restSecPlanned, sets]
+
+    SessionSetDto:
+      type: object
+      properties:
+        setNumber: { type: integer, format: int32 }
+        repsPlanned: { type: integer, format: int32 }
+        weightPlanned: { type: number, format: double }
+        repsDone: { type: integer, format: int32, nullable: true }
+        weightDone: { type: number, format: double, nullable: true }
+        rpe: { type: number, format: double, nullable: true }
+        isFailure: { type: boolean, nullable: true }
+      required: [setNumber, repsPlanned, weightPlanned]
