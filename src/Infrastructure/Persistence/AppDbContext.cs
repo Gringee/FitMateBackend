@@ -13,6 +13,10 @@ namespace Infrastructure.Persistence
         public DbSet<ScheduledWorkout> ScheduledWorkouts => Set<ScheduledWorkout>();
         public DbSet<ScheduledExercise> ScheduledExercises => Set<ScheduledExercise>();
         public DbSet<ScheduledSet> ScheduledSets => Set<ScheduledSet>();
+        
+        public DbSet<WorkoutSession> WorkoutSessions { get; set; }
+        public DbSet<SessionExercise> SessionExercises { get; set; }
+        public DbSet<SessionSet> SessionSets { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
