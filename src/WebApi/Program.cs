@@ -22,6 +22,8 @@ builder.Services.AddScoped<IScheduledService, ScheduledService>();
 
 builder.Services.AddScoped<IWorkoutSessionService, WorkoutSessionService>();
 
+builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowMyReactApp",

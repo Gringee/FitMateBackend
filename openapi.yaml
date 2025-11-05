@@ -1,14 +1,20 @@
 openapi: 3.0.3
 info:
   title: FitMateBackend API
-  version: "2.0.0"
+  version: "2.2.0"
   description: |
-    Backend API for training plans, scheduled workouts and workout sessions.
-    This spec uses **camelCase** field names (as confirmed by the frontend).
+    Backend API for training plans, scheduled workouts and workout sessions, plus analytics.
+    **Field naming:** camelCase (e.g., planName, notes, exercises).
 
 servers:
   - url: http://localhost:8080
     description: Local development
+
+tags:
+  - name: Plans
+  - name: Scheduled
+  - name: Sessions
+  - name: Analytics
 
 paths:
   /api/plans:
@@ -81,7 +87,7 @@ paths:
               $ref: '#/components/schemas/UpdatePlanRequest'
       responses:
         '200':
-          description: Updated
+          description: Updated plan
           content:
             application/json:
               schema:
@@ -161,7 +167,7 @@ paths:
           content:
             application/problem+json:
               schema:
-                $ref: '#/components/schemas/ProblemDetails'
+                $ref: '#/components/schemas/ProblemDetails']
 
   /api/scheduled/by-date:
     get:
@@ -282,9 +288,10 @@ paths:
                 $ref: '#/components/schemas/WorkoutSessionDto'
         '404':
           description: Scheduled workout not found
+
   /api/sessions/{id}/set:
     patch:
-      summary: Update single set during a session
+      summary: Update a single set during a session
       tags: [Sessions]
       parameters:
         - in: path
@@ -312,6 +319,7 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '404':
           description: Not found
+
   /api/sessions/{id}/complete:
     post:
       summary: Complete a workout session
@@ -342,6 +350,38 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
         '404':
           description: Not found
+
+  /api/sessions/{id}/abort:
+    post:
+      summary: Abort a workout session
+      tags: [Sessions]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AbortSessionRequest'
+      responses:
+        '200':
+          description: Aborted session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkoutSessionDto'
+        '400':
+          description: Invalid state
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Not found
+
   /api/sessions/{id}:
     get:
       summary: Get session by id
@@ -360,6 +400,7 @@ paths:
                 $ref: '#/components/schemas/WorkoutSessionDto'
         '404':
           description: Not found
+
   /api/sessions/by-range:
     get:
       summary: Get sessions by time range (UTC)
@@ -374,7 +415,7 @@ paths:
           name: to
           required: true
           schema: { type: string, format: date-time }
-          description: End (exclusive), ISO-ISO8601 UTC
+          description: End (exclusive), ISO-8601 UTC
       responses:
         '200':
           description: List of sessions
@@ -384,6 +425,129 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/WorkoutSessionDto'
+
+  # ----------------- Analytics -----------------
+  /api/analytics/overview:
+    get:
+      summary: KPI overview for a period (UTC)
+      tags: [Analytics]
+      parameters:
+        - in: query
+          name: from
+          required: true
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          required: true
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: Overview KPIs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverviewDto'
+
+  /api/analytics/volume:
+    get:
+      summary: Volume aggregation for a period
+      tags: [Analytics]
+      parameters:
+        - in: query
+          name: from
+          required: true
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          required: true
+          schema: { type: string, format: date-time }
+        - in: query
+          name: groupBy
+          required: false
+          schema:
+            type: string
+            enum: [day, week, exercise]
+            default: day
+        - in: query
+          name: exerciseName
+          required: false
+          schema: { type: string }
+      responses:
+        '200':
+          description: Volume series
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TimePointDto'
+
+  /api/analytics/exercises/{name}/e1rm:
+    get:
+      summary: e1RM time series for a single exercise
+      tags: [Analytics]
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema: { type: string }
+        - in: query
+          name: from
+          required: true
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          required: true
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: e1RM series
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/E1rmPointDto'
+
+  /api/analytics/adherence:
+    get:
+      summary: Planned vs completed workouts for a date range
+      tags: [Analytics]
+      parameters:
+        - in: query
+          name: fromDate
+          required: true
+          schema: { type: string, format: date }
+        - in: query
+          name: toDate
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Adherence breakdown
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdherenceDto'
+
+  /api/analytics/plan-vs-actual:
+    get:
+      summary: Difference between planned and actual on a session level
+      tags: [Analytics]
+      parameters:
+        - in: query
+          name: sessionId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Per-set deltas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlanVsActualItemDto'
 
 components:
   schemas:
@@ -482,7 +646,7 @@ components:
         time:
           type: string
           nullable: true
-          pattern: '^(?:[01]\d|2[0-3]):[0-5]\d$'
+          pattern: '^(?:[01]\\d|2[0-3]):[0-5]\\d$'
           example: "18:00"
         planId:
           type: string
@@ -556,6 +720,13 @@ components:
           format: date-time
           nullable: true
 
+    AbortSessionRequest:
+      type: object
+      properties:
+        sessionNotes:
+          type: string
+          nullable: true
+
     WorkoutSessionDto:
       type: object
       properties:
@@ -566,7 +737,7 @@ components:
         durationSec: { type: integer, format: int32, nullable: true }
         status:
           type: string
-          enum: [in_progress, completed, aborted]
+          enum: [inProgress, completed, aborted]
         sessionNotes: { type: string, nullable: true }
         exercises:
           type: array
@@ -598,3 +769,49 @@ components:
         rpe: { type: number, format: double, nullable: true }
         isFailure: { type: boolean, nullable: true }
       required: [setNumber, repsPlanned, weightPlanned]
+
+    # ---------- Analytics ----------
+    OverviewDto:
+      type: object
+      properties:
+        totalVolume: { type: number }
+        avgIntensity: { type: number }
+        sessionsCount: { type: integer }
+        adherencePct: { type: number }
+        newPrs: { type: integer }
+
+    TimePointDto:
+      type: object
+      properties:
+        period: { type: string }
+        value: { type: number }
+        exerciseName: { type: string, nullable: true }
+
+    E1rmPointDto:
+      type: object
+      properties:
+        day: { type: string, format: date }
+        e1Rm: { type: number }
+        sessionId: { type: string, format: uuid, nullable: true }
+
+    AdherenceDto:
+      type: object
+      properties:
+        planned: { type: integer }
+        completed: { type: integer }
+        missed: { type: integer }
+        adherencePct: { type: number }
+
+    PlanVsActualItemDto:
+      type: object
+      properties:
+        exerciseName: { type: string }
+        setNumber: { type: integer }
+        repsPlanned: { type: integer }
+        weightPlanned: { type: number }
+        repsDone: { type: integer, nullable: true }
+        weightDone: { type: number, nullable: true }
+        rpe: { type: number, nullable: true }
+        isFailure: { type: boolean, nullable: true }
+        repsDiff: { type: integer }
+        weightDiff: { type: number }
