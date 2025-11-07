@@ -1,5 +1,5 @@
 networks:
-  FitMate-net: {}   # Compose stworzy swoją sieć
+  FitMate-net: {}
 
 volumes:
   pg_FitMate_data: {}
@@ -9,7 +9,8 @@ services:
     image: postgres:16
     container_name: tp-postgres
     restart: unless-stopped
-    networks: [FitMate-net]
+    networks:
+      - FitMate-net
     environment:
       POSTGRES_USER: training
       POSTGRES_PASSWORD: devpass
@@ -27,15 +28,26 @@ services:
   api:
     build:
       context: .
-      dockerfile: src/WebApi/Dockerfile   # <— ważne: ścieżka względna, slashe
+      dockerfile: src/WebApi/Dockerfile
     container_name: fitmate-backend
     depends_on:
       db:
         condition: service_healthy
-    networks: [FitMate-net]
+    networks:
+      - FitMate-net
     environment:
-      ConnectionStrings__Default: Host=db;Port=5432;Database=fitmatedb;Username=training;Password=devpass;Include Error Detail=true
-      ASPNETCORE_URLS: http://+:8080
-      ASPNETCORE_ENVIRONMENT: Production
+      # Connection string (klucz musi pasować do GetConnectionString("DefaultConnection"))
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=fitmatedb;Username=training;Password=devpass;Include Error Detail=true"
+
+      # JWT (sekcja JwtSettings)
+      JwtSettings__Issuer: "FitMateBackend"
+      JwtSettings__Audience: "FitMateClient"
+      JwtSettings__Secret: "s8d7f9g2h4j6k8l0q2w3e5r7t9y1u3i5"
+      JwtSettings__AccessTokenMinutes: "60"
+      JwtSettings__RefreshTokenDays: "30"
+
+      # ASP.NET Core
+      ASPNETCORE_URLS: "http://+:8080"
+      ASPNETCORE_ENVIRONMENT: "Development"   # jeśli chcesz Swagger; zmień na Production w prod
     ports:
       - "8080:8080"

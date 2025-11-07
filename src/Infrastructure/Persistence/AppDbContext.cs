@@ -17,10 +17,14 @@ namespace Infrastructure.Persistence
         public DbSet<WorkoutSession> WorkoutSessions { get; set; }
         public DbSet<SessionExercise> SessionExercises { get; set; }
         public DbSet<SessionSet> SessionSets { get; set; }
+        
+        public DbSet<User> Users { get; set; }
+        public DbSet<Role> Roles { get; set; }
+        public DbSet<UserRole> UserRoles { get; set; }
+        public DbSet<RefreshToken> RefreshTokens { get; set; } 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // Załadowanie wszystkich konfiguracji z Infrastructure.Configurations
             modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
             base.OnModelCreating(modelBuilder);
         }
