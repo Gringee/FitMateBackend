@@ -1,7 +1,9 @@
 using Application.DTOs;
 using Application.Abstractions;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
+[Authorize]
 [ApiController]
 [Route("api/sessions")]
 public class SessionsController : ControllerBase

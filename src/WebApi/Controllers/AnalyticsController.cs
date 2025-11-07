@@ -1,9 +1,11 @@
 using Application.Abstractions;
 using Application.DTOs.Analytics;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace WebApi.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/analytics")]
 public class AnalyticsController : ControllerBase
