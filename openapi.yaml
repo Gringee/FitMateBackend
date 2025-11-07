@@ -1,776 +1,124 @@
 openapi: 3.0.3
 info:
-  title: FitMateBackend API
-  version: "2.2.0"
+  title: FitMate Backend API
+  version: "1.0.0"
   description: |
-    Backend API for training plans, scheduled workouts and workout sessions, plus analytics.
-    **Field naming:** camelCase (e.g., planName, notes, exercises).
-
+    Backend API for training plans, scheduled workouts, sessions and analytics with JWT authentication.
 servers:
   - url: http://localhost:8080
-    description: Local development
-
 tags:
+  - name: Health
+  - name: Auth
   - name: Plans
   - name: Scheduled
   - name: Sessions
   - name: Analytics
-
-paths:
-  /api/plans:
-    get:
-      summary: Get all plans
-      tags: [Plans]
-      responses:
-        '200':
-          description: List of plans
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/PlanDto'
-    post:
-      summary: Create a plan
-      tags: [Plans]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreatePlanRequest'
-      responses:
-        '201':
-          description: Created plan
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PlanDto'
-        '400':
-          description: Validation error
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-
-  /api/plans/{id}:
-    get:
-      summary: Get plan by id
-      tags: [Plans]
-      parameters:
-        - in: path
-          name: id
-          schema: { type: string, format: uuid }
-          required: true
-      responses:
-        '200':
-          description: Plan
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PlanDto'
-        '404':
-          description: Not found
-    put:
-      summary: Update plan
-      tags: [Plans]
-      parameters:
-        - in: path
-          name: id
-          schema: { type: string, format: uuid }
-          required: true
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdatePlanRequest'
-      responses:
-        '200':
-          description: Updated plan
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PlanDto'
-        '400':
-          description: Validation error
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '404':
-          description: Not found
-    delete:
-      summary: Delete plan
-      tags: [Plans]
-      parameters:
-        - in: path
-          name: id
-          schema: { type: string, format: uuid }
-          required: true
-      responses:
-        '204':
-          description: Deleted
-        '404':
-          description: Not found
-
-  /api/plans/{id}/duplicate:
-    post:
-      summary: Duplicate plan
-      tags: [Plans]
-      parameters:
-        - in: path
-          name: id
-          schema: { type: string, format: uuid }
-          required: true
-      responses:
-        '201':
-          description: Duplicated plan
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PlanDto'
-        '404':
-          description: Not found
-
-  /api/scheduled:
-    get:
-      summary: Get all scheduled workouts
-      tags: [Scheduled]
-      responses:
-        '200':
-          description: List of scheduled workouts
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ScheduledDto'
-    post:
-      summary: Create scheduled workout
-      tags: [Scheduled]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateScheduledRequest'
-      responses:
-        '201':
-          description: Created scheduled workout
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ScheduledDto'
-        '400':
-          description: Validation error
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails']
-
-  /api/scheduled/by-date:
-    get:
-      summary: Get all scheduled workouts for a given date
-      tags: [Scheduled]
-      parameters:
-        - in: query
-          name: date
-          required: true
-          schema: { type: string, format: date }
-          description: Date in YYYY-MM-DD
-      responses:
-        '200':
-          description: List for the given date
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ScheduledDto'
-
-  /api/scheduled/{id}:
-    get:
-      summary: Get scheduled workout by id
-      tags: [Scheduled]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        '200':
-          description: Scheduled workout
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ScheduledDto'
-        '404':
-          description: Not found
-    put:
-      summary: Update scheduled workout
-      tags: [Scheduled]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, format: uuid }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateScheduledRequest'
-      responses:
-        '200':
-          description: Updated scheduled workout
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ScheduledDto'
-        '400':
-          description: Validation error
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '404':
-          description: Not found
-    delete:
-      summary: Delete scheduled workout
-      tags: [Scheduled]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        '204':
-          description: Deleted
-        '404':
-          description: Not found
-
-  /api/scheduled/{id}/duplicate:
-    post:
-      summary: Duplicate scheduled workout
-      tags: [Scheduled]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        '201':
-          description: Duplicated scheduled workout
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ScheduledDto'
-        '404':
-          description: Not found
-
-  /api/sessions/start:
-    post:
-      summary: Start a workout session from a scheduled workout
-      tags: [Sessions]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/StartSessionRequest'
-      responses:
-        '200':
-          description: Session started
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/WorkoutSessionDto'
-        '404':
-          description: Scheduled workout not found
-
-  /api/sessions/{id}/set:
-    patch:
-      summary: Update a single set during a session
-      tags: [Sessions]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, format: uuid }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PatchSetRequest'
-      responses:
-        '200':
-          description: Updated session
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/WorkoutSessionDto'
-        '400':
-          description: Invalid state or validation error
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '404':
-          description: Not found
-
-  /api/sessions/{id}/complete:
-    post:
-      summary: Complete a workout session
-      tags: [Sessions]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, format: uuid }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CompleteSessionRequest'
-      responses:
-        '200':
-          description: Completed session
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/WorkoutSessionDto'
-        '400':
-          description: Invalid state
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '404':
-          description: Not found
-
-  /api/sessions/{id}/abort:
-    post:
-      summary: Abort a workout session
-      tags: [Sessions]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, format: uuid }
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AbortSessionRequest'
-      responses:
-        '200':
-          description: Aborted session
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/WorkoutSessionDto'
-        '400':
-          description: Invalid state
-          content:
-            application/problem+json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-        '404':
-          description: Not found
-
-  /api/sessions/{id}:
-    get:
-      summary: Get session by id
-      tags: [Sessions]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        '200':
-          description: Session
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/WorkoutSessionDto'
-        '404':
-          description: Not found
-
-  /api/sessions/by-range:
-    get:
-      summary: Get sessions by time range (UTC)
-      tags: [Sessions]
-      parameters:
-        - in: query
-          name: from
-          required: true
-          schema: { type: string, format: date-time }
-          description: Start (inclusive), ISO-8601 UTC
-        - in: query
-          name: to
-          required: true
-          schema: { type: string, format: date-time }
-          description: End (exclusive), ISO-8601 UTC
-      responses:
-        '200':
-          description: List of sessions
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/WorkoutSessionDto'
-
-  # ----------------- Analytics -----------------
-  /api/analytics/overview:
-    get:
-      summary: KPI overview for a period (UTC)
-      tags: [Analytics]
-      parameters:
-        - in: query
-          name: from
-          required: true
-          schema: { type: string, format: date-time }
-        - in: query
-          name: to
-          required: true
-          schema: { type: string, format: date-time }
-      responses:
-        '200':
-          description: Overview KPIs
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OverviewDto'
-
-  /api/analytics/volume:
-    get:
-      summary: Volume aggregation for a period
-      tags: [Analytics]
-      parameters:
-        - in: query
-          name: from
-          required: true
-          schema: { type: string, format: date-time }
-        - in: query
-          name: to
-          required: true
-          schema: { type: string, format: date-time }
-        - in: query
-          name: groupBy
-          required: false
-          schema:
-            type: string
-            enum: [day, week, exercise]
-            default: day
-        - in: query
-          name: exerciseName
-          required: false
-          schema: { type: string }
-      responses:
-        '200':
-          description: Volume series
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/TimePointDto'
-
-  /api/analytics/exercises/{name}/e1rm:
-    get:
-      summary: e1RM time series for a single exercise
-      tags: [Analytics]
-      parameters:
-        - in: path
-          name: name
-          required: true
-          schema: { type: string }
-        - in: query
-          name: from
-          required: true
-          schema: { type: string, format: date-time }
-        - in: query
-          name: to
-          required: true
-          schema: { type: string, format: date-time }
-      responses:
-        '200':
-          description: e1RM series
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/E1rmPointDto'
-
-  /api/analytics/adherence:
-    get:
-      summary: Planned vs completed workouts for a date range
-      tags: [Analytics]
-      parameters:
-        - in: query
-          name: fromDate
-          required: true
-          schema: { type: string, format: date }
-        - in: query
-          name: toDate
-          required: true
-          schema: { type: string, format: date }
-      responses:
-        '200':
-          description: Adherence breakdown
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AdherenceDto'
-
-  /api/analytics/plan-vs-actual:
-    get:
-      summary: Difference between planned and actual on a session level
-      tags: [Analytics]
-      parameters:
-        - in: query
-          name: sessionId
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        '200':
-          description: Per-set deltas
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/PlanVsActualItemDto'
-
+  - name: Users
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   schemas:
     ProblemDetails:
       type: object
       properties:
         type: { type: string }
         title: { type: string }
-        status: { type: integer, format: int32 }
+        status: { type: integer }
         detail: { type: string }
         instance: { type: string }
-        errors:
-          type: object
-          additionalProperties:
-            type: array
-            items: { type: string }
 
-    # ---------- Plans ----------
-    PlanDto:
-      allOf:
-        - $ref: '#/components/schemas/PlanBase'
-        - type: object
-          properties:
-            id:
-              type: string
-              format: uuid
-          required: [id, planName, type, exercises]
-    PlanBase:
+    SetDto:
       type: object
+      required: [reps, weight]
       properties:
-        planName:
-          type: string
-          example: FBW Base
-        type:
-          type: string
-          example: FBW
-        notes:
-          type: string
-          nullable: true
-        exercises:
-          type: array
-          items:
-            $ref: '#/components/schemas/Exercise'
-      required: [planName, type, exercises]
+        reps: { type: integer, minimum: 0 }
+        weight: { type: number, format: double, minimum: 0 }
 
-    CreatePlanRequest:
-      $ref: '#/components/schemas/PlanBase'
-    UpdatePlanRequest:
-      $ref: '#/components/schemas/PlanBase'
-
-    Exercise:
+    ExerciseDto:
       type: object
+      required: [name, rest, sets]
       properties:
-        name:
-          type: string
-          example: Squat
-        rest:
-          type: integer
-          format: int32
-          example: 90
+        name: { type: string }
+        rest: { type: integer, description: "Rest time in seconds" }
         sets:
           type: array
-          items:
-            $ref: '#/components/schemas/SetItem'
-      required: [name, rest, sets]
+          items: { $ref: "#/components/schemas/SetDto" }
 
-    SetItem:
+    PlanRequest:
       type: object
+      required: [planName, type, exercises]
       properties:
-        reps:
-          type: integer
-          format: int32
-          example: 5
-        weight:
-          type: number
-          format: double
-          example: 60
-      required: [reps, weight]
-
-    # ---------- Scheduled Workouts ----------
-    ScheduledDto:
-      allOf:
-        - $ref: '#/components/schemas/ScheduledBase'
-        - type: object
-          properties:
-            id:
-              type: string
-              format: uuid
-          required: [id, date, planId, planName, status]
-    ScheduledBase:
-      type: object
-      properties:
-        date:
-          type: string
-          format: date
-        time:
-          type: string
-          nullable: true
-          pattern: '^(?:[01]\\d|2[0-3]):[0-5]\\d$'
-          example: "18:00"
-        planId:
-          type: string
-          format: uuid
-        planName:
-          type: string
-        notes:
-          type: string
-          nullable: true
+        planName: { type: string }
+        type: { type: string, description: "e.g. FBW / Push-Pull-Legs / etc." }
+        notes: { type: string, nullable: true }
         exercises:
           type: array
-          items:
-            $ref: '#/components/schemas/Exercise'
+          items: { $ref: "#/components/schemas/ExerciseDto" }
+
+    PlanResponse:
+      allOf:
+        - $ref: "#/components/schemas/PlanRequest"
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+
+    ScheduledStatus:
+      type: string
+      enum: [planned, completed]
+
+    ScheduledRequest:
+      type: object
+      required: [date, planId, planName, exercises]
+      properties:
+        date: { type: string, format: date }
+        time: { type: string, description: "HH:mm", nullable: true }
+        planId: { type: string, format: uuid }
+        planName: { type: string }
+        notes: { type: string, nullable: true }
+        exercises:
+          type: array
+          items: { $ref: "#/components/schemas/ExerciseDto" }
         status:
-          type: string
-          description: planned or completed
-          enum: [planned, completed]
+          $ref: "#/components/schemas/ScheduledStatus"
           default: planned
-      required: [date, planId, planName]
 
-    CreateScheduledRequest:
+    ScheduledResponse:
       allOf:
-        - $ref: '#/components/schemas/ScheduledBase'
-    UpdateScheduledRequest:
-      allOf:
-        - $ref: '#/components/schemas/ScheduledBase'
+        - $ref: "#/components/schemas/ScheduledRequest"
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
 
-    # ---------- Sessions (Execution) ----------
-    StartSessionRequest:
+    SessionStartRequest:
       type: object
-      properties:
-        scheduledId:
-          type: string
-          format: uuid
       required: [scheduledId]
-
-    PatchSetRequest:
-      type: object
       properties:
-        exerciseOrder:
-          type: integer
-          format: int32
-        setNumber:
-          type: integer
-          format: int32
-        repsDone:
-          type: integer
-          format: int32
-          nullable: true
-        weightDone:
-          type: number
-          format: double
-          nullable: true
-        rpe:
-          type: number
-          format: double
-          nullable: true
-        isFailure:
-          type: boolean
-          nullable: true
+        scheduledId: { type: string, format: uuid }
+
+    SessionSetUpdateRequest:
+      type: object
       required: [exerciseOrder, setNumber]
-
-    CompleteSessionRequest:
-      type: object
       properties:
-        sessionNotes:
-          type: string
-          nullable: true
-        completedAtUtc:
-          type: string
-          format: date-time
-          nullable: true
+        exerciseOrder: { type: integer, minimum: 0 }
+        setNumber: { type: integer, minimum: 1 }
+        repsDone: { type: integer, minimum: 0, nullable: true }
+        weightDone: { type: number, format: double, minimum: 0, nullable: true }
+        rpe: { type: number, nullable: true }
+        isFailure: { type: boolean, nullable: true }
 
-    AbortSessionRequest:
-      type: object
-      properties:
-        sessionNotes:
-          type: string
-          nullable: true
-
-    WorkoutSessionDto:
+    SessionResponse:
       type: object
       properties:
         id: { type: string, format: uuid }
         scheduledId: { type: string, format: uuid }
-        startedAtUtc: { type: string, format: date-time }
+        status: { type: string, enum: [inProgress, completed, aborted] }
+        startedAtUtc: { type: string, format: date-time, nullable: true }
         completedAtUtc: { type: string, format: date-time, nullable: true }
-        durationSec: { type: integer, format: int32, nullable: true }
-        status:
-          type: string
-          enum: [inProgress, completed, aborted]
-        sessionNotes: { type: string, nullable: true }
-        exercises:
-          type: array
-          items:
-            $ref: '#/components/schemas/SessionExerciseDto'
-      required: [id, scheduledId, startedAtUtc, status, exercises]
+        notes: { type: string, nullable: true }
 
-    SessionExerciseDto:
-      type: object
-      properties:
-        order: { type: integer, format: int32 }
-        name: { type: string }
-        restSecPlanned: { type: integer, format: int32 }
-        restSecActual: { type: integer, format: int32, nullable: true }
-        sets:
-          type: array
-          items:
-            $ref: '#/components/schemas/SessionSetDto'
-      required: [order, name, restSecPlanned, sets]
-
-    SessionSetDto:
-      type: object
-      properties:
-        setNumber: { type: integer, format: int32 }
-        repsPlanned: { type: integer, format: int32 }
-        weightPlanned: { type: number, format: double }
-        repsDone: { type: integer, format: int32, nullable: true }
-        weightDone: { type: number, format: double, nullable: true }
-        rpe: { type: number, format: double, nullable: true }
-        isFailure: { type: boolean, nullable: true }
-      required: [setNumber, repsPlanned, weightPlanned]
-
-    # ---------- Analytics ----------
     OverviewDto:
       type: object
       properties:
@@ -792,7 +140,7 @@ components:
       properties:
         day: { type: string, format: date }
         e1Rm: { type: number }
-        sessionId: { type: string, format: uuid, nullable: true }
+        sessionId: { type: string, format: uuid }
 
     AdherenceDto:
       type: object
@@ -807,11 +155,583 @@ components:
       properties:
         exerciseName: { type: string }
         setNumber: { type: integer }
-        repsPlanned: { type: integer }
-        weightPlanned: { type: number }
+        repsPlanned: { type: integer, nullable: true }
+        weightPlanned: { type: number, nullable: true }
         repsDone: { type: integer, nullable: true }
         weightDone: { type: number, nullable: true }
         rpe: { type: number, nullable: true }
         isFailure: { type: boolean, nullable: true }
-        repsDiff: { type: integer }
-        weightDiff: { type: number }
+        repsDiff: { type: number, nullable: true }
+        weightDiff: { type: number, nullable: true }
+
+    RegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+        fullName: { type: string, nullable: true }
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+
+    AuthResponse:
+      type: object
+      properties:
+        accessToken: { type: string }
+        expiresAtUtc: { type: string, format: date-time }
+
+paths:
+  /:
+    get:
+      tags: [Health]
+      summary: Ping root
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  name: { type: string }
+
+  /health/db:
+    get:
+      tags: [Health]
+      summary: Database connectivity check
+      responses:
+        '200': { description: DB OK }
+        '500': { description: DB not reachable }
+
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: Register new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegisterRequest" }
+      responses:
+        '200':
+          description: Auth token issued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResponse" }
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProblemDetails" }
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        '200':
+          description: Auth token issued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResponse" }
+        '400':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProblemDetails" }
+
+  /api/plans:
+    get:
+      tags: [Plans]
+      summary: Get all plans
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: List of plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/PlanResponse" }
+    post:
+      tags: [Plans]
+      summary: Create plan
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PlanRequest" }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PlanResponse" }
+
+  /api/plans/{id}:
+    get:
+      tags: [Plans]
+      summary: Get plan by id
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          schema: { type: string, format: uuid }
+          required: true
+      responses:
+        '200':
+          description: Single plan
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PlanResponse" }
+        '404': { description: Not found }
+    put:
+      tags: [Plans]
+      summary: Update plan
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          schema: { type: string, format: uuid }
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PlanRequest" }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PlanResponse" }
+    delete:
+      tags: [Plans]
+      summary: Delete plan
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          schema: { type: string, format: uuid }
+          required: true
+      responses:
+        '204': { description: No content }
+
+  /api/plans/{id}/duplicate:
+    post:
+      tags: [Plans]
+      summary: Duplicate plan
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          schema: { type: string, format: uuid }
+          required: true
+      responses:
+        '201':
+          description: Duplicated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PlanResponse" }
+
+  /api/scheduled:
+    get:
+      tags: [Scheduled]
+      summary: Get all scheduled workouts
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: List of scheduled
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ScheduledResponse" }
+    post:
+      tags: [Scheduled]
+      summary: Create scheduled workout
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ScheduledRequest" }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ScheduledResponse" }
+
+  /api/scheduled/{id}:
+    get:
+      tags: [Scheduled]
+      summary: Get scheduled by id
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          schema: { type: string, format: uuid }
+          required: true
+      responses:
+        '200':
+          description: Single scheduled
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ScheduledResponse" }
+        '404': { description: Not found }
+    put:
+      tags: [Scheduled]
+      summary: Update scheduled workout
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          schema: { type: string, format: uuid }
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ScheduledRequest" }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ScheduledResponse" }
+    delete:
+      tags: [Scheduled]
+      summary: Delete scheduled workout
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          schema: { type: string, format: uuid }
+          required: true
+      responses:
+        '204': { description: No content }
+
+  /api/scheduled/{id}/duplicate:
+    post:
+      tags: [Scheduled]
+      summary: Duplicate scheduled workout
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          schema: { type: string, format: uuid }
+          required: true
+      responses:
+        '201':
+          description: Duplicated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ScheduledResponse" }
+
+  /api/scheduled/by-date:
+    get:
+      tags: [Scheduled]
+      summary: Get scheduled workouts by date
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: date
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: List for the day
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ScheduledResponse" }
+
+  /api/sessions/start:
+    post:
+      tags: [Sessions]
+      summary: Start a session from scheduled workout
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SessionStartRequest" }
+      responses:
+        '200':
+          description: Started
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SessionResponse" }
+
+  /api/sessions/{id}:
+    get:
+      tags: [Sessions]
+      summary: Get session
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Session
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SessionResponse" }
+        '404': { description: Not found }
+
+  /api/sessions/{id}/set:
+    patch:
+      tags: [Sessions]
+      summary: Update a set during session
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SessionSetUpdateRequest" }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SessionResponse" }
+
+  /api/sessions/{id}/complete:
+    post:
+      tags: [Sessions]
+      summary: Complete session
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Completed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SessionResponse" }
+
+  /api/sessions/{id}/abort:
+    post:
+      tags: [Sessions]
+      summary: Abort session
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Aborted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SessionResponse" }
+
+  /api/sessions/by-range:
+    get:
+      tags: [Sessions]
+      summary: Sessions in date range
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: from
+          required: true
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          required: true
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/SessionResponse" }
+
+  /api/analytics/overview:
+    get:
+      tags: [Analytics]
+      summary: KPI for given period
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: from
+          required: true
+          schema: { type: string, format: date }
+        - in: query
+          name: to
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Overview
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OverviewDto" }
+
+  /api/analytics/volume:
+    get:
+      tags: [Analytics]
+      summary: Volume over time or by exercise
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: from
+          required: true
+          schema: { type: string, format: date }
+        - in: query
+          name: to
+          required: true
+          schema: { type: string, format: date }
+        - in: query
+          name: groupBy
+          required: true
+          schema:
+            type: string
+            enum: [day, week, exercise]
+        - in: query
+          name: exerciseName
+          required: false
+          schema: { type: string }
+      responses:
+        '200':
+          description: Series
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/TimePointDto" }
+
+  /api/analytics/exercises/{name}/e1rm:
+    get:
+      tags: [Analytics]
+      summary: e1RM history for exercise
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema: { type: string }
+        - in: query
+          name: from
+          required: true
+          schema: { type: string, format: date }
+        - in: query
+          name: to
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: e1RM series
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/E1rmPointDto" }
+
+  /api/analytics/adherence:
+    get:
+      tags: [Analytics]
+      summary: Planned vs completed workouts
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: fromDate
+          required: true
+          schema: { type: string, format: date }
+        - in: query
+          name: toDate
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Adherence
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdherenceDto" }
+
+  /api/analytics/plan-vs-actual:
+    get:
+      tags: [Analytics]
+      summary: Compare planned vs actual sets in a session
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: sessionId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Differences list
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/PlanVsActualItemDto" }
+
+  /api/users:
+    get:
+      tags: [Users]
+      summary: List users (Admin only)
+      description: Requires role Admin.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string, format: uuid }
+                    email: { type: string }
+                    fullName: { type: string, nullable: true }
+        '403': { description: Forbidden }
+
+  /api/users/{id}/role:
+    put:
+      tags: [Users]
+      summary: Assign role to user (Admin only)
+      description: Requires role Admin.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: roleName
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: No content }
+        '400': { description: Bad request }
+        '404': { description: Not found }
