@@ -13,7 +13,14 @@ public sealed class PlanConfiguration : IEntityTypeConfiguration<Plan>
         builder.Property(p => p.PlanName).HasMaxLength(200).IsRequired();
         builder.Property(p => p.Type).HasMaxLength(100).IsRequired();
         builder.Property(p => p.Notes).HasColumnType("text");
-
+        
+        builder.HasOne(x => x.CreatedByUser)
+            .WithMany() 
+            .HasForeignKey(x => x.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+        
+        builder.HasIndex(x => new { x.CreatedByUserId, x.PlanName });
+        
         builder.HasMany(p => p.Exercises)
                .WithOne(e => e.Plan)
                .HasForeignKey(e => e.PlanId)

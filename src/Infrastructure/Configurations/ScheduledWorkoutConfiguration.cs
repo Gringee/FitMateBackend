@@ -25,7 +25,12 @@ public sealed class ScheduledWorkoutConfiguration : IEntityTypeConfiguration<Sch
                .WithOne(e => e.ScheduledWorkout)
                .HasForeignKey(e => e.ScheduledWorkoutId)
                .OnDelete(DeleteBehavior.Cascade);
+        
+        builder.HasOne(s => s.User)
+            .WithMany()
+            .HasForeignKey(s => s.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
 
-        builder.HasIndex(s => s.Date);
+        builder.HasIndex(s => new { s.UserId, s.Date });
     }
 }

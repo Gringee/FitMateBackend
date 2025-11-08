@@ -1,8 +1,9 @@
+namespace Domain.Entities;
+
 public class WorkoutSession
 {
     public Guid Id { get; set; }
     public Guid ScheduledId { get; set; }        
-    public Guid? UserId { get; set; }            
     public DateTime StartedAtUtc { get; set; }
     public DateTime? CompletedAtUtc { get; set; }
     public int? DurationSec { get; set; }
@@ -10,6 +11,9 @@ public class WorkoutSession
     public string? SessionNotes { get; set; }
 
     public ICollection<SessionExercise> Exercises { get; set; } = new List<SessionExercise>();
+    
+    public Guid UserId { get; set; }
+    public User User { get; set; } = null!;
 }
 
 public class SessionExercise

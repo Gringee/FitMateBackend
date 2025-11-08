@@ -22,6 +22,7 @@ namespace Infrastructure.Persistence
         public DbSet<Role> Roles { get; set; }
         public DbSet<UserRole> UserRoles { get; set; }
         public DbSet<RefreshToken> RefreshTokens { get; set; } 
+        public DbSet<PlanAccess> PlanAccess { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="ecfbd2ef-5158-4099-a81c-5dc8a12a090d" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/../Application/Common/Security/ClaimsExtensions.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../Domain/Entities/PlanAccess.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Configurations/PlanAccessConfiguration.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Application/Abstractions/IPlanService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../Application/Abstractions/IPlanService.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Domain/Entities/Plan.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../Domain/Entities/Plan.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Domain/Entities/ScheduledWorkout.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../Domain/Entities/ScheduledWorkout.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../Domain/Entities/WorkoutSession.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../Domain/Entities/WorkoutSession.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Auth/TokenService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Auth/TokenService.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Configurations/PlanConfiguration.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Configurations/PlanConfiguration.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Configurations/ScheduledWorkoutConfiguration.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Configurations/ScheduledWorkoutConfiguration.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Configurations/WorkoutSessionConfiguration.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Configurations/WorkoutSessionConfiguration.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Persistence/AppDbContext.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Persistence/AppDbContext.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Services/PlanService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Services/PlanService.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../WebApi/Program.cs" beforeDir="false" afterPath="$PROJECT_DIR$/../WebApi/Program.cs" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/../.." />
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "associatedIndex": 0
+}]]></component>
+  <component name="ProjectId" id="359ziGvchlj48mXdQECvSlNgki4" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultAutoModeForALLUsers.v1": "true",
+    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
+    "git-widget-placeholder": "feature/auth-users-roles",
+    "junie.onboarding.icon.badge.shown": "true",
+    "nodejs_package_manager_path": "npm",
+    "to.speed.mode.migration.done": "true",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="ecfbd2ef-5158-4099-a81c-5dc8a12a090d" name="Changes" comment="" />
+      <created>1762537200184</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1762537200184</updated>
+      <workItem from="1762537201601" duration="4000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="UnityProjectConfiguration" hasMinimizedUI="false" />
+  <component name="VcsManagerConfiguration">
+    <option name="CLEAR_INITIAL_COMMIT_MESSAGE" value="true" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <breakpoint enabled="true" type="DotNet_Exception_Breakpoints">
+          <properties exception="System.OperationCanceledException" breakIfHandledByOtherCode="false" displayValue="System.OperationCanceledException" />
+          <option name="timeStamp" value="1" />
+        </breakpoint>
+        <breakpoint enabled="true" type="DotNet_Exception_Breakpoints">
+          <properties exception="System.Threading.Tasks.TaskCanceledException" breakIfHandledByOtherCode="false" displayValue="System.Threading.Tasks.TaskCanceledException" />
+          <option name="timeStamp" value="2" />
+        </breakpoint>
+        <breakpoint enabled="true" type="DotNet_Exception_Breakpoints">
+          <properties exception="System.Threading.ThreadAbortException" breakIfHandledByOtherCode="false" displayValue="System.Threading.ThreadAbortException" />
+          <option name="timeStamp" value="3" />
+        </breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+  </component>
+</project>

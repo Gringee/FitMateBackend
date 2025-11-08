@@ -3,20 +3,35 @@ using Application.DTOs.Analytics;
 using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using System.Globalization;
+using Microsoft.AspNetCore.Http;
+using Application.Common.Security;
 
 namespace Infrastructure.Services;
 
 public class AnalyticsService : IAnalyticsService
 {
     private readonly AppDbContext _db;
-    public AnalyticsService(AppDbContext db) => _db = db;
+    private readonly IHttpContextAccessor _http;
 
-    // KPI: volume / avg intensity / sessions / adherence / new PRs (0 na razie)
+    public AnalyticsService(AppDbContext db, IHttpContextAccessor http)
+    {
+        _db = db;
+        _http = http;
+    }
+
+    private Guid CurrentUserId()
+    {
+        var user = _http.HttpContext?.User ?? throw new UnauthorizedAccessException("No HttpContext/User.");
+        return user.GetUserId();
+    }
+
     public async Task<OverviewDto> GetOverviewAsync(DateTime fromUtc, DateTime toUtc, CancellationToken ct)
     {
+        var userId = CurrentUserId();
+
         var sessions = await _db.WorkoutSessions
             .AsNoTracking()
-            .Where(ws => ws.CompletedAtUtc != null && ws.StartedAtUtc >= fromUtc && ws.StartedAtUtc < toUtc)
+            .Where(ws => ws.UserId == userId && ws.CompletedAtUtc != null && ws.StartedAtUtc >= fromUtc && ws.StartedAtUtc < toUtc)
             .Select(ws => new {
                 ws.Id,
                 Sets = ws.Exercises.SelectMany(se => se.Sets)
@@ -36,17 +51,16 @@ public class AnalyticsService : IAnalyticsService
         double avgIntensity = intensities.Count == 0 ? 0 : intensities.Average();
         int sessionsCount = sessions.Count;
 
-        // adherence z scheduled_workouts (po datach dziennych)
         DateOnly fromDate = DateOnly.FromDateTime(fromUtc);
-        DateOnly toDate = DateOnly.FromDateTime(toUtc.AddDays(-0)); // to exclusive -> interpretuj ostrożnie
+        DateOnly toDate = DateOnly.FromDateTime(toUtc.AddDays(-0));
 
         int planned = await _db.ScheduledWorkouts
             .AsNoTracking()
-            .CountAsync(sw => sw.Date >= fromDate && sw.Date < toDate, ct);
+            .CountAsync(sw => sw.UserId == userId && sw.Date >= fromDate && sw.Date < toDate, ct);
 
         int completed = await _db.ScheduledWorkouts
             .AsNoTracking()
-            .CountAsync(sw => sw.Status.ToString() == "Completed" && sw.Date >= fromDate && sw.Date < toDate, ct);
+            .CountAsync(sw => sw.UserId == userId && sw.Status.ToString() == "Completed" && sw.Date >= fromDate && sw.Date < toDate, ct);
 
         return new OverviewDto
         {
@@ -58,14 +72,14 @@ public class AnalyticsService : IAnalyticsService
         };
     }
 
-    // Volume agregowane wg groupBy: day | week | exercise
     public async Task<IReadOnlyList<TimePointDto>> GetVolumeAsync(DateTime fromUtc, DateTime toUtc, string groupBy, string? exerciseName, CancellationToken ct)
     {
+        var userId = CurrentUserId();
         groupBy = (groupBy ?? "day").ToLowerInvariant();
 
         var q = _db.WorkoutSessions
             .AsNoTracking()
-            .Where(ws => ws.CompletedAtUtc != null && ws.StartedAtUtc >= fromUtc && ws.StartedAtUtc < toUtc)
+            .Where(ws => ws.UserId == userId && ws.CompletedAtUtc != null && ws.StartedAtUtc >= fromUtc && ws.StartedAtUtc < toUtc)
             .SelectMany(ws => ws.Exercises.SelectMany(se => se.Sets.Select(ss => new
             {
                 ws.StartedAtUtc,
@@ -91,7 +105,6 @@ public class AnalyticsService : IAnalyticsService
             return list;
         }
 
-        // day/week
         var data = await q.ToListAsync(ct);
         var result = data
             .GroupBy(x => groupBy == "week"
@@ -104,12 +117,13 @@ public class AnalyticsService : IAnalyticsService
         return result;
     }
 
-    // Epley e1RM: weight * (1 + reps/30)
     public async Task<IReadOnlyList<E1rmPointDto>> GetE1RmAsync(string exerciseName, DateTime fromUtc, DateTime toUtc, CancellationToken ct)
     {
+        var userId = CurrentUserId();
+
         var rows = await _db.WorkoutSessions
             .AsNoTracking()
-            .Where(ws => ws.CompletedAtUtc != null && ws.StartedAtUtc >= fromUtc && ws.StartedAtUtc < toUtc)
+            .Where(ws => ws.UserId == userId && ws.CompletedAtUtc != null && ws.StartedAtUtc >= fromUtc && ws.StartedAtUtc < toUtc)
             .SelectMany(ws => ws.Exercises
                 .Where(se => se.Name == exerciseName)
                 .SelectMany(se => se.Sets
@@ -133,19 +147,26 @@ public class AnalyticsService : IAnalyticsService
 
     public async Task<AdherenceDto> GetAdherenceAsync(DateOnly fromDate, DateOnly toDate, CancellationToken ct)
     {
+        var userId = CurrentUserId();
+
         int planned = await _db.ScheduledWorkouts
             .AsNoTracking()
-            .CountAsync(sw => sw.Date >= fromDate && sw.Date < toDate, ct);
+            .CountAsync(sw => sw.UserId == userId && sw.Date >= fromDate && sw.Date < toDate, ct);
 
         int completed = await _db.ScheduledWorkouts
             .AsNoTracking()
-            .CountAsync(sw => sw.Status.ToString() == "Completed" && sw.Date >= fromDate && sw.Date < toDate, ct);
+            .CountAsync(sw => sw.UserId == userId && sw.Status.ToString() == "Completed" && sw.Date >= fromDate && sw.Date < toDate, ct);
 
         return new AdherenceDto { Planned = planned, Completed = completed };
     }
 
     public async Task<IReadOnlyList<PlanVsActualItemDto>> GetPlanVsActualAsync(Guid sessionId, CancellationToken ct)
     {
+        var userId = CurrentUserId();
+
+        var sessionExists = await _db.WorkoutSessions.AnyAsync(s => s.Id == sessionId && s.UserId == userId, ct);
+        if (!sessionExists) return [];
+
         var items = await _db.SessionExercises
             .AsNoTracking()
             .Where(se => se.WorkoutSessionId == sessionId)

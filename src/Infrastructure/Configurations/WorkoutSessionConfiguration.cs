@@ -13,6 +13,11 @@ public class WorkoutSessionConfiguration : IEntityTypeConfiguration<WorkoutSessi
         b.HasMany(x => x.Exercises).WithOne().HasForeignKey(x => x.WorkoutSessionId).OnDelete(DeleteBehavior.Cascade);
         b.HasIndex(x => new { x.ScheduledId });
         b.HasIndex(x => new { x.Status, x.StartedAtUtc });
+        
+        b.HasOne(x => x.User)
+            .WithMany()
+            .HasForeignKey(x => x.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }
 

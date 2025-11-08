@@ -1,9 +1,11 @@
 ﻿using Application.Abstractions;
 using Application.DTOs;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace WebApi.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/plans")]
 public class PlansController(IPlanService svc) : ControllerBase
