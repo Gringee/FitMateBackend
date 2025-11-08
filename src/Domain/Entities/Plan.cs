@@ -10,4 +10,9 @@ public class Plan
     public string? Notes { get; set; }
 
     public ICollection<PlanExercise> Exercises { get; set; } = new List<PlanExercise>();
+    
+    public Guid CreatedByUserId { get; set; }
+    public User CreatedByUser { get; set; } = null!;
+    
+    public ICollection<PlanAccess> Access { get; set; } = new List<PlanAccess>();
 }

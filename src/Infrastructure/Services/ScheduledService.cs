@@ -5,21 +5,38 @@ using Domain.Entities;
 using Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Infrastructure.Persistence;
+using Microsoft.AspNetCore.Http;              
+using Application.Common.Security;          
 
 namespace Infrastructure.Services;
 
-public sealed class ScheduledService(AppDbContext db) : IScheduledService
+public sealed class ScheduledService : IScheduledService
 {
-    private readonly AppDbContext _db = db;
+    private readonly AppDbContext _db;
+    private readonly IHttpContextAccessor _http; 
+
+    public ScheduledService(AppDbContext db, IHttpContextAccessor http) 
+    {
+        _db = db;
+        _http = http;
+    }
+
+    private Guid CurrentUserId()
+    {
+        var user = _http.HttpContext?.User ?? throw new UnauthorizedAccessException("No HttpContext/User.");
+        return user.GetUserId();
+    }
 
     public async Task<ScheduledDto> CreateAsync(CreateScheduledDto dto, CancellationToken ct = default)
     {
+        var userId = CurrentUserId();
+
         var (d, t) = ParseDateTime(dto.Date, dto.Time);
         var status = ParseStatus(dto.Status);
-
+        
         var plan = await _db.Plans
             .Include(p => p.Exercises).ThenInclude(e => e.Sets)
-            .FirstOrDefaultAsync(p => p.Id == dto.PlanId, ct)
+            .FirstOrDefaultAsync(p => p.Id == dto.PlanId && p.CreatedByUserId == userId, ct)
             ?? throw new KeyNotFoundException("Plan not found");
 
         var sw = new ScheduledWorkout
@@ -30,18 +47,19 @@ public sealed class ScheduledService(AppDbContext db) : IScheduledService
             PlanId = plan.Id,
             PlanName = dto.PlanName ?? plan.PlanName,
             Notes = dto.Notes ?? plan.Notes,
-            Status = status
+            Status = status,
+            UserId = userId 
         };
 
         var exercisesSrc = (dto.Exercises is { Count: > 0 })
             ? dto.Exercises.Select(e => (name: e.Name, rest: e.Rest, sets: e.Sets))
             : plan.Exercises.Select(e => (
-            name: e.Name,
-            rest: e.RestSeconds,
-            sets: e.Sets
-            .Select(s => new SetDto { Reps = s.Reps, Weight = s.Weight })
-            .ToList()
-            ));
+                name: e.Name,
+                rest: e.RestSeconds,
+                sets: e.Sets
+                    .Select(s => new SetDto { Reps = s.Reps, Weight = s.Weight })
+                    .ToList()
+              ));
 
         foreach (var ex in exercisesSrc)
         {
@@ -74,38 +92,53 @@ public sealed class ScheduledService(AppDbContext db) : IScheduledService
 
     public async Task<List<ScheduledDto>> GetAllAsync(CancellationToken ct = default)
     {
+        var userId = CurrentUserId();
+
         var list = await _db.ScheduledWorkouts
             .Include(s => s.Exercises).ThenInclude(e => e.Sets)
-            .AsNoTracking().OrderBy(s => s.Date).ThenBy(s => s.Time).ToListAsync(ct);
+            .Where(s => s.UserId == userId)
+            .AsNoTracking()
+            .OrderBy(s => s.Date).ThenBy(s => s.Time)
+            .ToListAsync(ct);
 
         return list.Select(Map).ToList();
     }
 
     public async Task<ScheduledDto?> GetByIdAsync(Guid id, CancellationToken ct = default)
     {
+        var userId = CurrentUserId();
+
         var s = await _db.ScheduledWorkouts
             .Include(x => x.Exercises).ThenInclude(e => e.Sets)
-            .AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
+            .Where(x => x.UserId == userId)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
 
         return s is null ? null : Map(s);
     }
 
     public async Task<List<ScheduledDto>> GetByDateAsync(string yyyyMMdd, CancellationToken ct = default)
     {
+        var userId = CurrentUserId();
+
         var date = DateOnly.ParseExact(yyyyMMdd, "yyyy-MM-dd", CultureInfo.InvariantCulture);
         var list = await _db.ScheduledWorkouts
             .Include(s => s.Exercises).ThenInclude(e => e.Sets)
-            .Where(s => s.Date == date)
-            .AsNoTracking().OrderBy(s => s.Time).ToListAsync(ct);
+            .Where(s => s.UserId == userId && s.Date == date)
+            .AsNoTracking()
+            .OrderBy(s => s.Time)
+            .ToListAsync(ct);
 
         return list.Select(Map).ToList();
     }
 
     public async Task<ScheduledDto?> UpdateAsync(Guid id, CreateScheduledDto dto, CancellationToken ct = default)
     {
+        var userId = CurrentUserId();
+
         var sw = await _db.ScheduledWorkouts
             .Include(s => s.Exercises).ThenInclude(e => e.Sets)
-            .FirstOrDefaultAsync(s => s.Id == id, ct);
+            .FirstOrDefaultAsync(s => s.Id == id && s.UserId == userId, ct);
         if (sw is null) return null;
 
         var (d, t) = ParseDateTime(dto.Date, dto.Time);
@@ -150,8 +183,12 @@ public sealed class ScheduledService(AppDbContext db) : IScheduledService
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken ct = default)
     {
-        var sw = await _db.ScheduledWorkouts.FindAsync([id], ct);
+        var userId = CurrentUserId();
+
+        var sw = await _db.ScheduledWorkouts
+            .FirstOrDefaultAsync(x => x.Id == id && x.UserId == userId, ct);
         if (sw is null) return false;
+
         _db.Remove(sw);
         await _db.SaveChangesAsync(ct);
         return true;
@@ -159,9 +196,11 @@ public sealed class ScheduledService(AppDbContext db) : IScheduledService
 
     public async Task<ScheduledDto?> DuplicateAsync(Guid id, CancellationToken ct = default)
     {
+        var userId = CurrentUserId(); // ← NEW
+
         var s = await _db.ScheduledWorkouts
             .Include(x => x.Exercises).ThenInclude(e => e.Sets)
-            .FirstOrDefaultAsync(x => x.Id == id, ct);
+            .FirstOrDefaultAsync(x => x.Id == id && x.UserId == userId, ct);
         if (s is null) return null;
 
         var copy = new ScheduledWorkout
@@ -172,7 +211,8 @@ public sealed class ScheduledService(AppDbContext db) : IScheduledService
             PlanId = s.PlanId,
             PlanName = s.PlanName,
             Notes = s.Notes,
-            Status = s.Status
+            Status = s.Status,
+            UserId = userId 
         };
         foreach (var ex in s.Exercises)
         {
@@ -201,8 +241,7 @@ public sealed class ScheduledService(AppDbContext db) : IScheduledService
         await _db.SaveChangesAsync(ct);
         return Map(copy);
     }
-
-    // helpers
+    
     private static (DateOnly, TimeOnly?) ParseDateTime(string date, string? time)
     {
         var d = DateOnly.ParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture);

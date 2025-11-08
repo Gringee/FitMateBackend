@@ -1,7 +1,5 @@
 ﻿using Application.DTOs;
 
-namespace Application.Abstractions;
-
 public interface IPlanService
 {
     Task<PlanDto> CreateAsync(CreatePlanDto dto, CancellationToken ct = default);

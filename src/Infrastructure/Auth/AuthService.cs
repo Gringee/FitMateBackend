@@ -19,51 +19,68 @@ public class AuthService : IAuthService
     }
 
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request, CancellationToken ct)
+{
+    var exists = await _db.Users.AnyAsync(u => u.Email == request.Email, ct);
+    if (exists) throw new InvalidOperationException("Email already registered.");
+
+    var user = new User
     {
-        var exists = await _db.Users.AnyAsync(u => u.Email == request.Email, ct);
-        if (exists) throw new InvalidOperationException("Email already registered.");
+        Id = Guid.NewGuid(),
+        Email = request.Email,
+        PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
+        FullName = request.FullName
+    };
+    _db.Users.Add(user);
 
-        var user = new User
-        {
-            Id = Guid.NewGuid(),
-            Email = request.Email,
-            PasswordHash = BCryptNet.HashPassword(request.Password),
-            FullName = request.FullName
-        };
-        _db.Users.Add(user);
-        
-        var role = await _db.Roles.FirstOrDefaultAsync(r => r.Name == "User", ct);
-        if (role is null)
-        {
-            role = new Role { Id = Guid.NewGuid(), Name = "User" };
-            _db.Roles.Add(role);
-            await _db.SaveChangesAsync(ct); // zapisz, aby mieć Role.Id w DB
-        }
+    var role = await _db.Roles.FirstOrDefaultAsync(r => r.Name == "User", ct)
+               ?? new Role { Id = Guid.NewGuid(), Name = "User" };
+    if (role.Id == default) _db.Roles.Add(role);
 
-        _db.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = role.Id });
+    _db.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = role.Id });
 
-        await _db.SaveChangesAsync(ct);
+    // access
+    await _db.SaveChangesAsync(ct);
+    var roles = new[] { "User" };
+    var (access, exp) = _tokens.CreateAccessToken(user, roles);
 
-        var roles = new[] { "User" };
-        var (access, exp) = _tokens.CreateAccessToken(user, roles);
-
-        return new AuthResponse { AccessToken = access, ExpiresAtUtc = exp };
-    }
-
-    public async Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken ct)
+    // refresh  ⬇⬇⬇
+    var (rt, rtExp) = _tokens.CreateRefreshToken();
+    _db.RefreshTokens.Add(new RefreshToken
     {
-        var user = await _db.Users
-            .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
-            .FirstOrDefaultAsync(u => u.Email == request.Email, ct);
+        Id = Guid.NewGuid(),
+        UserId = user.Id,
+        Token = rt,
+        ExpiresAtUtc = rtExp
+    });
+    await _db.SaveChangesAsync(ct);
 
-        if (user == null || !BCryptNet.Verify(request.Password, user.PasswordHash))
-            throw new InvalidOperationException("Invalid credentials.");
+    return new AuthResponse { AccessToken = access, ExpiresAtUtc = exp, RefreshToken = rt };
+}
 
-        var roles = user.UserRoles.Select(ur => ur.Role.Name).ToArray();
-        var (access, exp) = _tokens.CreateAccessToken(user, roles);
+public async Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken ct)
+{
+    var user = await _db.Users
+        .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
+        .FirstOrDefaultAsync(u => u.Email == request.Email, ct);
 
-        return new AuthResponse { AccessToken = access, ExpiresAtUtc = exp };
-    }
+    if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+        throw new InvalidOperationException("Invalid credentials.");
+
+    var roles = user.UserRoles.Select(ur => ur.Role.Name).ToArray();
+    var (access, exp) = _tokens.CreateAccessToken(user, roles);
+    
+    var (rt, rtExp) = _tokens.CreateRefreshToken();
+    _db.RefreshTokens.Add(new RefreshToken
+    {
+        Id = Guid.NewGuid(),
+        UserId = user.Id,
+        Token = rt,
+        ExpiresAtUtc = rtExp
+    });
+    await _db.SaveChangesAsync(ct);
+
+    return new AuthResponse { AccessToken = access, ExpiresAtUtc = exp, RefreshToken = rt };
+}
 
     public async Task<AuthResponse> RefreshAsync(string refreshToken, CancellationToken ct)
     {

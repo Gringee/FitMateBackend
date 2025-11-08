@@ -3,16 +3,41 @@ using Application.DTOs;
 using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Infrastructure.Persistence;
+using Application.Common.Security;
+using Microsoft.AspNetCore.Http;         
 
 namespace Infrastructure.Services;
 
-public sealed class PlanService(AppDbContext db) : IPlanService
+public sealed class PlanService : IPlanService
 {
-    private readonly AppDbContext _db = db;
+    private readonly AppDbContext _db;
+    private readonly IHttpContextAccessor _http;  
+    public PlanService(AppDbContext db, IHttpContextAccessor http) 
+    {
+        _db = db;
+        _http = http;
+    }
+
+    private Guid CurrentUserId()
+    {
+        var user = _http.HttpContext?.User 
+                   ?? throw new UnauthorizedAccessException("No HttpContext/User.");
+        return user.GetUserId();
+    }
 
     public async Task<PlanDto> CreateAsync(CreatePlanDto dto, CancellationToken ct = default)
     {
-        var plan = new Plan { Id = Guid.NewGuid(), PlanName = dto.PlanName, Type = dto.Type, Notes = dto.Notes };
+        var userId = CurrentUserId();
+
+        var plan = new Plan
+        {
+            Id = Guid.NewGuid(),
+            PlanName = dto.PlanName,
+            Type = dto.Type,
+            Notes = dto.Notes,
+            CreatedByUserId = userId 
+        };
+
         foreach (var ex in dto.Exercises)
         {
             var pe = new PlanExercise
@@ -36,34 +61,46 @@ public sealed class PlanService(AppDbContext db) : IPlanService
             }
             plan.Exercises.Add(pe);
         }
+
         _db.Add(plan);
         await _db.SaveChangesAsync(ct);
+        
         return await GetByIdAsync(plan.Id, ct) ?? throw new InvalidOperationException();
     }
 
     public async Task<List<PlanDto>> GetAllAsync(CancellationToken ct = default)
     {
+        var userId = CurrentUserId();
+
         var list = await _db.Plans
             .Include(p => p.Exercises).ThenInclude(e => e.Sets)
-            .AsNoTracking().ToListAsync(ct);
+            .Where(p => p.CreatedByUserId == userId)
+            .AsNoTracking()
+            .ToListAsync(ct);
 
         return list.Select(Map).ToList();
     }
 
     public async Task<PlanDto?> GetByIdAsync(Guid id, CancellationToken ct = default)
     {
+        var userId = CurrentUserId();
+
         var p = await _db.Plans
             .Include(x => x.Exercises).ThenInclude(e => e.Sets)
-            .AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
+            .Where(x => x.CreatedByUserId == userId)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id, ct);
 
         return p is null ? null : Map(p);
     }
 
     public async Task<PlanDto?> UpdateAsync(Guid id, CreatePlanDto dto, CancellationToken ct = default)
     {
+        var userId = CurrentUserId();
+
         var plan = await _db.Plans
             .Include(p => p.Exercises).ThenInclude(e => e.Sets)
-            .FirstOrDefaultAsync(p => p.Id == id, ct);
+            .FirstOrDefaultAsync(p => p.Id == id && p.CreatedByUserId == userId, ct);
         if (plan is null) return null;
 
         plan.PlanName = dto.PlanName;
@@ -104,8 +141,12 @@ public sealed class PlanService(AppDbContext db) : IPlanService
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken ct = default)
     {
-        var p = await _db.Plans.FindAsync([id], ct);
+        var userId = CurrentUserId();
+
+        var p = await _db.Plans
+            .FirstOrDefaultAsync(x => x.Id == id && x.CreatedByUserId == userId, ct);
         if (p is null) return false;
+
         _db.Remove(p);
         await _db.SaveChangesAsync(ct);
         return true;
@@ -113,17 +154,21 @@ public sealed class PlanService(AppDbContext db) : IPlanService
 
     public async Task<PlanDto?> DuplicateAsync(Guid id, CancellationToken ct = default)
     {
+        var userId = CurrentUserId();
+
         var p = await _db.Plans
             .Include(x => x.Exercises).ThenInclude(e => e.Sets)
-            .FirstOrDefaultAsync(x => x.Id == id, ct);
+            .FirstOrDefaultAsync(x => x.Id == id && x.CreatedByUserId == userId, ct);
         if (p is null) return null;
 
         var copy = new Plan
         {
             Id = Guid.NewGuid(),
             PlanName = p.PlanName + " (Copy)",
-            Notes = p.Notes
+            Notes = p.Notes,
+            CreatedByUserId = userId
         };
+
         foreach (var ex in p.Exercises)
         {
             var pe = new PlanExercise
@@ -156,7 +201,7 @@ public sealed class PlanService(AppDbContext db) : IPlanService
     {
         Id = p.Id,
         PlanName = p.PlanName,
-        Type = p.Type,            
+        Type = p.Type,
         Notes = p.Notes,
         Exercises = p.Exercises
             .OrderBy(e => e.Id)
@@ -164,8 +209,10 @@ public sealed class PlanService(AppDbContext db) : IPlanService
             {
                 Name = e.Name,
                 Rest = e.RestSeconds,
-                Sets = e.Sets.OrderBy(s => s.SetNumber)
-                             .Select(s => new SetDto { Reps = s.Reps, Weight = s.Weight }).ToList()
+                Sets = e.Sets
+                    .OrderBy(s => s.SetNumber)
+                    .Select(s => new SetDto { Reps = s.Reps, Weight = s.Weight })
+                    .ToList()
             }).ToList()
     };
 }

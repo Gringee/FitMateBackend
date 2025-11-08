@@ -4,6 +4,7 @@ using System.Text;
 using Application.Abstractions;
 using Domain.Entities;
 using Microsoft.IdentityModel.Tokens;
+using System.Security.Cryptography;
 
 namespace Infrastructure.Auth;
 
@@ -19,9 +20,13 @@ public class TokenService : ITokenService
 
         var claims = new List<Claim>
         {
+            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new(JwtRegisteredClaimNames.Email, user.Email),
-            new(ClaimTypes.Name, user.Email)
+            new(ClaimTypes.Name, user.Email),
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new(JwtRegisteredClaimNames.Iat, 
+                new DateTimeOffset(now).ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64)
         };
         claims.AddRange(roles.Select(r => new Claim(ClaimTypes.Role, r)));
 
@@ -42,7 +47,14 @@ public class TokenService : ITokenService
 
     public (string token, DateTime expiresAtUtc) CreateRefreshToken()
     {
-        var token = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
+        Span<byte> bytes = stackalloc byte[64];
+        RandomNumberGenerator.Fill(bytes);
+
+        var token = Convert.ToBase64String(bytes)
+            .Replace('+', '-')
+            .Replace('/', '_')
+            .TrimEnd('=');
+
         var expires = DateTime.UtcNow.AddDays(_settings.RefreshTokenDays);
         return (token, expires);
     }

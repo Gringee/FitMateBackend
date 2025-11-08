@@ -2,12 +2,13 @@
 using Application.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Swashbuckle.AspNetCore.Filters;
 
 namespace WebApi.Controllers;
 
-[Authorize]
 [ApiController]
 [Route("api/scheduled")]
+[Authorize]
 public class ScheduledController(IScheduledService svc) : ControllerBase
 {
     [HttpPost]

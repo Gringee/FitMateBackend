@@ -114,8 +114,7 @@ public class WorkoutSessionService : IWorkoutSessionService
 
         if (!string.IsNullOrWhiteSpace(req.SessionNotes))
             sess.SessionNotes = req.SessionNotes;
-
-        // (opcjonalnie) aktualizujemy status zaplanowanego treningu
+        
         var sch = await _db.ScheduledWorkouts.FirstOrDefaultAsync(x => x.Id == sess.ScheduledId, ct);
         if (sch is not null && sch.Status == ScheduledStatus.Planned)
             sch.Status = ScheduledStatus.Completed;

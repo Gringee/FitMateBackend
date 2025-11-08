@@ -17,4 +17,7 @@ public class ScheduledWorkout
 
     public Plan Plan { get; set; } = null!;
     public ICollection<ScheduledExercise> Exercises { get; set; } = new List<ScheduledExercise>();
+    
+    public Guid UserId { get; set; }
+    public User User { get; set; } = null!;
 }
