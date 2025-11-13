@@ -23,6 +23,8 @@ namespace Infrastructure.Persistence
         public DbSet<UserRole> UserRoles { get; set; }
         public DbSet<RefreshToken> RefreshTokens { get; set; } 
         public DbSet<PlanAccess> PlanAccess { get; set; }
+        public DbSet<SharedPlan> SharedPlans => Set<SharedPlan>();
+        public DbSet<Friendship> Friendships => Set<Friendship>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

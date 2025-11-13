@@ -17,22 +17,38 @@ public static class DbSeeder
             );
             await db.SaveChangesAsync(ct);
         }
-
-        if (!await db.Users.AnyAsync(u => u.Email == "admin@fitmate.local", ct))
+        
+        var admin = await db.Users.FirstOrDefaultAsync(u => u.Email == "admin@fitmate.local", ct);
+        if (admin is null)
         {
-            var admin = new User
+            admin = new User
             {
                 Id = Guid.NewGuid(),
                 Email = "admin@fitmate.local",
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin123!"),
-                FullName = "FitMate Admin"
+                FullName = "FitMate Admin",
+                UserName = "admin"
             };
             db.Users.Add(admin);
-
-            var adminRole = await db.Roles.FirstAsync(r => r.Name == "Admin", ct);
-            db.UserRoles.Add(new UserRole { UserId = admin.Id, RoleId = adminRole.Id });
-
             await db.SaveChangesAsync(ct);
+
+            var adminRoleId = await db.Roles.Where(r => r.Name == "Admin")
+                .Select(r => r.Id)
+                .FirstAsync(ct);
+            db.UserRoles.Add(new UserRole { UserId = admin.Id, RoleId = adminRoleId });
+            await db.SaveChangesAsync(ct);
+        }
+        
+        if (!await db.Plans.AnyAsync(ct))
+        {
+             db.Plans.Add(new Plan {
+                 Id = Guid.NewGuid(),
+                 PlanName = "Demo FBW",
+                 Type = "FBW",
+                 Notes = "Seed plan",
+                 CreatedByUserId = admin.Id
+             });
+             await db.SaveChangesAsync(ct);
         }
     }
 }
