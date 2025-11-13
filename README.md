@@ -1,6 +1,6 @@
 # 🏋️‍♂️ FitMate Backend
 
-**FitMateBackend** to aplikacja backendowa w **ASP.NET Core 8** z bazą danych **PostgreSQL**, służąca do zarządzania planami treningowymi, harmonogramami, sesjami treningowymi i analizą postępów.
+Backend w **ASP.NET Core 8** + **PostgreSQL**, z modułami: **Plans**, **Scheduled**, **Sessions**, **Analytics** oraz **JWT Auth (Users/Roles)**.
 
 ---
 
@@ -12,7 +12,7 @@
 - **Swagger UI**
 - **Clean Architecture**
 - **REST API + OpenAPI 3.0**
-
+- **JWT Authentication (Bearer)**
 ---
 
 ## 🚀 Uruchomienie w Dockerze
@@ -78,20 +78,25 @@ docker compose up -d --build
 
 ---
 
-## 🧪 Testowanie API
+## 🧪 Szybkie testy API (curl)
 
-### Sprawdzenie działania API
 ```bash
+# Health
 curl http://localhost:8080/
-```
+curl http://localhost:8080/health/db
 
-### Przykładowa odpowiedź:
-```json
-{ "ok": true, "name": "FitMate API" }
-```
+# Plans
+curl -H "Authorization: Bearer <TOKEN>" http://localhost:8080/api/plans
 
-### Swagger UI:
-[http://localhost:8080/swagger](http://localhost:8080/swagger)
+# Scheduled (po dacie)
+curl -H "Authorization: Bearer <TOKEN>" "http://localhost:8080/api/scheduled/by-date?date=2025-11-07"
+
+# Sessions – start
+curl -X POST http://localhost:8080/api/sessions/start   -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json"   -d '{"scheduledId":"<GUID>"}'
+
+# Analytics – overview
+curl -H "Authorization: Bearer <TOKEN>" "http://localhost:8080/api/analytics/overview?from=2025-11-01&to=2025-11-30"
+```
 
 ---
 
@@ -127,12 +132,34 @@ System oferuje analizę postępów treningowych na podstawie zapisanych sesji.
 
 ---
 
-## 🔒 Autentykacja (planowana)
+## 🔐 Auth – jak działa (skrót dla frontendu)
 
-W kolejnych wersjach zostanie dodane:
-- Rejestracja i logowanie użytkowników (JWT)
-- Role: `user`, `admin`
-- Ograniczenie dostępu do prywatnych planów i analiz
+- Rejestracja: `POST /api/auth/register` → zwraca `accessToken` (JWT) + `expiresAtUtc`.
+- Logowanie: `POST /api/auth/login` → zwraca `accessToken` (JWT) + `expiresAtUtc`.
+- Każde wywołanie chronione: dodaj nagłówek  
+  `Authorization: Bearer <ACCESS_TOKEN>`
+- Role: `User` (domyślnie), `Admin` (dostęp do /api/users).
+
+### Przykłady (curl)
+**Rejestracja**
+```bash
+curl -X POST http://localhost:8080/api/auth/register   -H "Content-Type: application/json"   -d '{"email":"user1@test.local","password":"Pass123!","fullName":"User One"}'
+```
+
+**Logowanie**
+```bash
+curl -X POST http://localhost:8080/api/auth/login   -H "Content-Type: application/json"   -d '{"email":"user1@test.local","password":"Pass123!"}'
+```
+
+**Wywołanie chronionego endpointu**
+```bash
+curl http://localhost:8080/api/plans -H "Authorization: Bearer <TOKEN>"
+```
+
+**Endpoint admina**
+```bash
+curl http://localhost:8080/api/users -H "Authorization: Bearer <ADMIN_TOKEN>"
+```
 
 ---
 
