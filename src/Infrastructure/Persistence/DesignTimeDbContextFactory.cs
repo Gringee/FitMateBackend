@@ -9,7 +9,6 @@ namespace Infrastructure.Persistence
     {
         public AppDbContext CreateDbContext(string[] args)
         {
-            // Wczytuje konfigurację z appsettings.Development.json
             IConfigurationRoot configuration = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
                 .AddJsonFile("appsettings.Development.json", optional: false)

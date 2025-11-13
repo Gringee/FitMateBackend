@@ -196,6 +196,114 @@ public sealed class PlanService : IPlanService
         await _db.SaveChangesAsync(ct);
         return Map(copy);
     }
+    
+    public async Task ShareToUserAsync(Guid planId, Guid sharedWithUserId, CancellationToken ct)
+    {
+        var sharedById = CurrentUserId();
+
+        var plan = await _db.Plans
+                       .FirstOrDefaultAsync(p => p.Id == planId && p.CreatedByUserId == sharedById, ct)
+                   ?? throw new UnauthorizedAccessException("Nie masz uprawnień do tego planu.");
+
+        var already = await _db.SharedPlans
+            .AnyAsync(x => x.PlanId == planId && x.SharedWithUserId == sharedWithUserId, ct);
+
+        if (already)
+            throw new InvalidOperationException("Plan już został udostępniony temu użytkownikowi.");
+
+        var shared = new SharedPlan
+        {
+            Id = Guid.NewGuid(),
+            PlanId = plan.Id,
+            SharedByUserId = sharedById,
+            SharedWithUserId = sharedWithUserId
+        };
+
+        _db.SharedPlans.Add(shared);
+        await _db.SaveChangesAsync(ct);
+    }
+
+    public async Task<List<PlanDto>> GetSharedWithMeAsync(CancellationToken ct)
+    {
+        var myId = CurrentUserId();
+
+        var plans = await _db.SharedPlans
+            .Include(sp => sp.Plan).ThenInclude(p => p.Exercises).ThenInclude(e => e.Sets)
+            .Where(sp => sp.SharedWithUserId == myId)
+            .Select(sp => sp.Plan)
+            .AsNoTracking()
+            .ToListAsync(ct);
+
+        return plans.Select(Map).ToList();
+    }
+    
+    public async Task RespondToSharedPlanAsync(Guid sharedPlanId, bool accept, CancellationToken ct)
+    {
+        var userId = CurrentUserId();
+
+        var shared = await _db.SharedPlans
+                         .FirstOrDefaultAsync(sp => sp.Id == sharedPlanId && sp.SharedWithUserId == userId, ct)
+                     ?? throw new KeyNotFoundException("Nie znaleziono udostępnionego planu.");
+
+        if (shared.Status != "Pending")
+            throw new InvalidOperationException("Plan został już wcześniej zaakceptowany lub odrzucony.");
+
+        shared.Status = accept ? "Accepted" : "Rejected";
+        shared.RespondedAtUtc = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+    }
+
+    public async Task<List<SharedPlanDto>> GetPendingSharedPlansAsync(CancellationToken ct)
+    {
+        var userId = CurrentUserId();
+
+        var shared = await _db.SharedPlans
+            .Include(sp => sp.Plan)
+            .Include(sp => sp.SharedByUser)
+            .Where(sp => sp.SharedWithUserId == userId && sp.Status == "Pending")
+            .AsNoTracking()
+            .ToListAsync(ct);
+
+        return shared.Select(sp => new SharedPlanDto
+        {
+            Id = sp.Id,
+            PlanId = sp.PlanId,
+            PlanName = sp.Plan.PlanName,
+            SharedByName = sp.SharedByUser.FullName,
+            SharedAtUtc = sp.SharedAtUtc,
+            Status = sp.Status
+        }).ToList();
+    }
+    
+    public async Task<List<SharedPlanDto>> GetSharedHistoryAsync(CancellationToken ct)
+    {
+        var myId = CurrentUserId();
+
+        var items = await _db.SharedPlans
+            .Include(sp => sp.Plan)
+            .Include(sp => sp.SharedByUser)
+            .Where(sp => sp.SharedWithUserId == myId && sp.Status != "Pending")
+            .OrderByDescending(sp => sp.RespondedAtUtc)
+            .AsNoTracking()
+            .ToListAsync(ct);
+
+        return items.Select(MapShared).ToList();
+    }
+    
+    public async Task<bool> UnshareAsync(Guid sharedPlanId, CancellationToken ct)
+    {
+        var ownerId = CurrentUserId();
+
+        var sp = await _db.SharedPlans
+            .FirstOrDefaultAsync(x => x.Id == sharedPlanId && x.SharedByUserId == ownerId, ct);
+
+        if (sp is null) return false;
+
+        _db.SharedPlans.Remove(sp);
+        await _db.SaveChangesAsync(ct);
+        return true;
+    }
 
     private static PlanDto Map(Plan p) => new()
     {
@@ -214,5 +322,16 @@ public sealed class PlanService : IPlanService
                     .Select(s => new SetDto { Reps = s.Reps, Weight = s.Weight })
                     .ToList()
             }).ToList()
+    };
+    
+    private static SharedPlanDto MapShared(SharedPlan sp) => new()
+    {
+        Id = sp.Id,
+        PlanId = sp.PlanId,
+        PlanName = sp.Plan?.PlanName ?? string.Empty,
+        SharedByName = sp.SharedByUser?.FullName ?? string.Empty,
+        SharedAtUtc = sp.SharedAtUtc,
+        Status = sp.Status,
+        RespondedAtUtc = sp.RespondedAtUtc
     };
 }

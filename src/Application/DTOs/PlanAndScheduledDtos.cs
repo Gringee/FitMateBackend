@@ -52,3 +52,14 @@ public class CreateScheduledDto
     public List<ExerciseDto> Exercises { get; set; } = new();
     public string? Status { get; set; } // optional, default planned
 }
+
+public class SharedPlanDto
+{
+    public Guid Id { get; set; }
+    public Guid PlanId { get; set; }
+    public string PlanName { get; set; } = string.Empty;
+    public string SharedByName { get; set; } = string.Empty;
+    public DateTime SharedAtUtc { get; set; }
+    public string Status { get; set; } = "Pending";
+    public DateTime? RespondedAtUtc { get; set; }
+}
