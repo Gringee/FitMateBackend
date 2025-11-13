@@ -1,6 +1,7 @@
 using Application.Abstractions;
 using Application.DTOs.Auth;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace WebApi.Controllers;
 
@@ -17,9 +18,39 @@ public class AuthController : ControllerBase
     
     [HttpPost("login")]
     public async Task<ActionResult<AuthResponse>> Login([FromBody] LoginRequest req, CancellationToken ct)
-        => Ok(await _auth.LoginAsync(req, ct));
-
+    {
+        try
+        {
+            var result = await _auth.LoginAsync(req, ct);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Unauthorized(new { error = ex.Message });
+        }
+    }
     [HttpPost("refresh")]
-    public async Task<ActionResult<AuthResponse>> Refresh([FromBody] string refreshToken, CancellationToken ct)
-        => Ok(await _auth.RefreshAsync(refreshToken, ct)); 
+    [AllowAnonymous] 
+    public async Task<ActionResult<AuthResponse>> Refresh(
+        [FromBody] RefreshRequestDto request,
+        CancellationToken ct)
+    {
+        try
+        {
+            var result = await _auth.RefreshAsync(request.RefreshToken, ct);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Unauthorized(new { error = ex.Message });
+        }
+    } 
+    
+    [HttpPost("logout")]
+    [Authorize]
+    public async Task<IActionResult> Logout([FromBody] LogoutRequestDto dto, CancellationToken ct)
+    {
+        await _auth.LogoutAsync(dto, ct);
+        return NoContent();
+    }
 }

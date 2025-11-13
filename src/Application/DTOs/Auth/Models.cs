@@ -20,3 +20,13 @@ public class AuthResponse
     public DateTime ExpiresAtUtc { get; set; }
     public string RefreshToken { get; set; } = null!; 
 }
+
+public class LogoutRequestDto
+{
+    public string RefreshToken { get; set; } = string.Empty;
+}
+
+public class RefreshRequestDto
+{
+    public string RefreshToken { get; set; } = string.Empty;
+}

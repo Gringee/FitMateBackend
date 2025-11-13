@@ -88,15 +88,44 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponse> RefreshAsync(string refreshToken, CancellationToken ct)
     {
+        var now = DateTime.UtcNow;
+
         var rt = await _db.RefreshTokens
             .Include(x => x.User).ThenInclude(u => u.UserRoles).ThenInclude(ur => ur.Role)
-            .FirstOrDefaultAsync(x => x.Token == refreshToken && x.IsActive, ct);
+            .FirstOrDefaultAsync(x =>
+                    x.Token == refreshToken &&
+                    x.ExpiresAtUtc > now, // zamiast x.IsActive
+                ct);
 
-        if (rt == null) throw new InvalidOperationException("Invalid refresh token.");
+        if (rt == null)
+            throw new InvalidOperationException("Invalid refresh token.");
 
         var roles = rt.User.UserRoles.Select(r => r.Role.Name);
         var (access, exp) = _tokens.CreateAccessToken(rt.User, roles);
 
-        return new AuthResponse { AccessToken = access, ExpiresAtUtc = exp };
+        // Możesz też wygenerować nowy refresh token, ale na razie zostawię jak masz:
+        return new AuthResponse
+        {
+            AccessToken = access,
+            ExpiresAtUtc = exp,
+            RefreshToken = rt.Token // warto coś zwrócić, żeby schema DTO była spójna
+        };
+    }
+    
+    public async Task LogoutAsync(LogoutRequestDto request, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.RefreshToken))
+            return; 
+        var rt = await _db.RefreshTokens
+            .FirstOrDefaultAsync(t => t.Token == request.RefreshToken, ct);
+
+        if (rt is null)
+        {
+            return;
+        }
+
+        _db.RefreshTokens.Remove(rt);
+
+        await _db.SaveChangesAsync(ct);
     }
 }
