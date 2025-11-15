@@ -1,3 +1,5 @@
+namespace Application.DTOs;
+
 public class SessionSetDto
 {
     public int SetNumber { get; set; }

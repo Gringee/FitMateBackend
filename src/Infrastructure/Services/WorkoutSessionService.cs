@@ -1,14 +1,9 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using Application.Abstractions;
-using Application.DTOs;
 using Domain.Entities;
 using Domain.Enums;
 using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Application.Abstractions;
+using Application.DTOs;
 
 namespace Infrastructure.Services;
 
@@ -20,11 +15,7 @@ public class WorkoutSessionService : IWorkoutSessionService
     {
         _db = db;
     }
-
-    /// <summary>
-    /// Rozpoczyna sesję realizacji na podstawie zaplanowanego treningu (ScheduledWorkout).
-    /// Tworzy snapshot ćwiczeń/serii i ustawia status sesji na "in_progress".
-    /// </summary>
+    
     public async Task<WorkoutSessionDto> StartAsync(StartSessionRequest req, CancellationToken ct)
     {
         var sch = await _db.ScheduledWorkouts
@@ -39,7 +30,6 @@ public class WorkoutSessionService : IWorkoutSessionService
             ScheduledId = sch.Id,
             StartedAtUtc = DateTime.UtcNow,
             Status = "in_progress",
-            // zachowujemy kolejność taką, jak w ScheduledWorkout (indeksy)
             Exercises = sch.Exercises
                 .Select((e, idx) => new SessionExercise
                 {
@@ -66,10 +56,7 @@ public class WorkoutSessionService : IWorkoutSessionService
 
         return await MapDtoAsync(session.Id, ct);
     }
-
-    /// <summary>
-    /// Aktualizuje wyniki pojedynczej serii w trakcie sesji (optymistyczny model UI).
-    /// </summary>
+    
     public async Task<WorkoutSessionDto> PatchSetAsync(Guid sessionId, PatchSetRequest req, CancellationToken ct)
     {
         var sess = await _db.WorkoutSessions
@@ -95,10 +82,7 @@ public class WorkoutSessionService : IWorkoutSessionService
         await _db.SaveChangesAsync(ct);
         return await MapDtoAsync(sessionId, ct);
     }
-
-    /// <summary>
-    /// Kończy sesję, uzupełnia czasy i (opcjonalnie) oznacza ScheduledWorkout jako Completed.
-    /// </summary>
+    
     public async Task<WorkoutSessionDto> CompleteAsync(Guid sessionId, CompleteSessionRequest req, CancellationToken ct)
     {
         var sess = await _db.WorkoutSessions
@@ -122,10 +106,7 @@ public class WorkoutSessionService : IWorkoutSessionService
         await _db.SaveChangesAsync(ct);
         return await MapDtoAsync(sessionId, ct);
     }
-
-    /// <summary>
-    /// Przerywa sesję i zamyka ją z odpowiednim statusem.
-    /// </summary>
+    
     public async Task<WorkoutSessionDto> AbortAsync(Guid sessionId, AbortSessionRequest req, CancellationToken ct)
     {
         var sess = await _db.WorkoutSessions
@@ -170,9 +151,6 @@ public class WorkoutSessionService : IWorkoutSessionService
 
         return result;
     }
-
-    // --------------------- prywatne mapowanie ---------------------
-
     private async Task<WorkoutSessionDto> MapDtoAsync(Guid id, CancellationToken ct)
     {
         var s = await _db.WorkoutSessions

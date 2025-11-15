@@ -1,5 +1,7 @@
 using Application.DTOs;
 
+namespace Application.Abstractions;
+
 public interface IWorkoutSessionService
 {
     Task<WorkoutSessionDto> StartAsync(StartSessionRequest req, CancellationToken ct);

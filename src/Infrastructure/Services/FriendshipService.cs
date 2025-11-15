@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using System.Collections.Generic;
 using Application.Abstractions;
 using Application.DTOs;
 using Domain.Entities;
@@ -22,7 +21,7 @@ public class FriendshipService : IFriendshipService
 
     private Guid CurrentUserId()
     {
-        var id = _http.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+        var id = _http.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrWhiteSpace(id))
             throw new UnauthorizedAccessException();
         return Guid.Parse(id);
@@ -145,7 +144,7 @@ public class FriendshipService : IFriendshipService
                 {
                     Id = f.Id,
                     FromUserId = uFrom.Id,
-                    FromName = uFrom.FullName,
+                    FromName = uFrom.FullName ?? string.Empty,
                     ToUserId = me,
                     ToName = _db.Users.Where(x => x.Id == me).Select(x => x.FullName).FirstOrDefault()!,
                     Status = f.Status,
@@ -169,7 +168,7 @@ public class FriendshipService : IFriendshipService
                     FromUserId = me,
                     FromName = _db.Users.Where(x => x.Id == me).Select(x => x.FullName).FirstOrDefault()!,
                     ToUserId = uTo.Id,
-                    ToName = uTo.FullName,
+                    ToName = uTo.FullName ?? string.Empty,
                     Status = f.Status,
                     CreatedAtUtc = f.CreatedAtUtc,
                     RespondedAtUtc = f.RespondedAtUtc

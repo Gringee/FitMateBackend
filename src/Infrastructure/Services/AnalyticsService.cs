@@ -38,7 +38,7 @@ public class AnalyticsService : IAnalyticsService
             })
             .ToListAsync(ct);
 
-        var allSets = sessions.SelectMany(s => s.Sets);
+        var allSets = sessions.SelectMany(s => s.Sets).ToList();
 
         decimal totalVolume = allSets.Sum(s =>
             (decimal)((s.RepsDone ?? s.RepsPlanned) * (double)(s.WeightDone ?? s.WeightPlanned)));
@@ -75,7 +75,7 @@ public class AnalyticsService : IAnalyticsService
     public async Task<IReadOnlyList<TimePointDto>> GetVolumeAsync(DateTime fromUtc, DateTime toUtc, string groupBy, string? exerciseName, CancellationToken ct)
     {
         var userId = CurrentUserId();
-        groupBy = (groupBy ?? "day").ToLowerInvariant();
+        groupBy = (groupBy).ToLowerInvariant();
 
         var q = _db.WorkoutSessions
             .AsNoTracking()
@@ -136,7 +136,7 @@ public class AnalyticsService : IAnalyticsService
             .Select(g => new E1rmPointDto
             {
                 Day = g.Key,
-                E1Rm = g.Max(r => r.WeightDone!.Value * (1 + (decimal)r.RepsDone!.Value / 30m)),
+                E1Rm = g.Max(r => r.WeightDone!.Value * (1 + r.RepsDone!.Value / 30m)),
                 SessionId = rows.FirstOrDefault(r => DateOnly.FromDateTime(r.StartedAtUtc.Date) == g.Key)?.Id
             })
             .OrderBy(x => x.Day)

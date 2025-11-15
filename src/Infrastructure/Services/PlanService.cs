@@ -1,10 +1,10 @@
-﻿using Application.Abstractions;
-using Application.DTOs;
+﻿using Application.DTOs;
 using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Infrastructure.Persistence;
 using Application.Common.Security;
-using Microsoft.AspNetCore.Http;         
+using Microsoft.AspNetCore.Http;  
+using Application.Abstractions;
 
 namespace Infrastructure.Services;
 
@@ -270,7 +270,7 @@ public sealed class PlanService : IPlanService
             Id = sp.Id,
             PlanId = sp.PlanId,
             PlanName = sp.Plan.PlanName,
-            SharedByName = sp.SharedByUser.FullName,
+            SharedByName = sp.SharedByUser.FullName ?? string.Empty,
             SharedAtUtc = sp.SharedAtUtc,
             Status = sp.Status
         }).ToList();
@@ -328,8 +328,8 @@ public sealed class PlanService : IPlanService
     {
         Id = sp.Id,
         PlanId = sp.PlanId,
-        PlanName = sp.Plan?.PlanName ?? string.Empty,
-        SharedByName = sp.SharedByUser?.FullName ?? string.Empty,
+        PlanName = sp.Plan.PlanName,
+        SharedByName = sp.SharedByUser.FullName ?? string.Empty,
         SharedAtUtc = sp.SharedAtUtc,
         Status = sp.Status,
         RespondedAtUtc = sp.RespondedAtUtc

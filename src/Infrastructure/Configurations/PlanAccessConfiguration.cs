@@ -6,12 +6,12 @@ namespace Infrastructure.Configurations;
 
 public class PlanAccessConfiguration : IEntityTypeConfiguration<PlanAccess>
 {
-    public void Configure(EntityTypeBuilder<PlanAccess> b)
+    public void Configure(EntityTypeBuilder<PlanAccess> builder)
     {
-        b.HasKey(x => new { x.UserId, x.PlanId });
-        b.Property(x => x.Permission).HasMaxLength(16).IsRequired();
+        builder.HasKey(x => new { x.UserId, x.PlanId });
+        builder.Property(x => x.Permission).HasMaxLength(16).IsRequired();
 
-        b.HasOne(x => x.Plan).WithMany(p => p.Access).HasForeignKey(x => x.PlanId).OnDelete(DeleteBehavior.Cascade);
-        b.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.Plan).WithMany(p => p.Access).HasForeignKey(x => x.PlanId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
     }
 }

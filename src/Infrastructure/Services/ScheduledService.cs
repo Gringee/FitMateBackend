@@ -45,7 +45,7 @@ public sealed class ScheduledService : IScheduledService
             Date = d,
             Time = t,
             PlanId = plan.Id,
-            PlanName = dto.PlanName ?? plan.PlanName,
+            PlanName = dto.PlanName,
             Notes = dto.Notes ?? plan.Notes,
             Status = status,
             UserId = userId 
@@ -245,7 +245,7 @@ public sealed class ScheduledService : IScheduledService
     private static (DateOnly, TimeOnly?) ParseDateTime(string date, string? time)
     {
         var d = DateOnly.ParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture);
-        TimeOnly? t = string.IsNullOrWhiteSpace(time) ? null : TimeOnly.ParseExact(time!, "HH:mm", CultureInfo.InvariantCulture);
+        TimeOnly? t = string.IsNullOrWhiteSpace(time) ? null : TimeOnly.ParseExact(time, "HH:mm", CultureInfo.InvariantCulture);
         return (d, t);
     }
 

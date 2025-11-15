@@ -32,7 +32,7 @@ public class AuthService : IAuthService
             Id = Guid.NewGuid(),
             Email = request.Email,
             PasswordHash = BCryptNet.HashPassword(request.Password),
-            FullName = request.FullName?.Trim() ?? string.Empty,
+            FullName = request.FullName.Trim(),
             UserName = uname
         };
         _db.Users.Add(user);
@@ -94,7 +94,7 @@ public class AuthService : IAuthService
             .Include(x => x.User).ThenInclude(u => u.UserRoles).ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(x =>
                     x.Token == refreshToken &&
-                    x.ExpiresAtUtc > now, // zamiast x.IsActive
+                    x.ExpiresAtUtc > now, 
                 ct);
 
         if (rt == null)
@@ -102,13 +102,12 @@ public class AuthService : IAuthService
 
         var roles = rt.User.UserRoles.Select(r => r.Role.Name);
         var (access, exp) = _tokens.CreateAccessToken(rt.User, roles);
-
-        // Możesz też wygenerować nowy refresh token, ale na razie zostawię jak masz:
+        
         return new AuthResponse
         {
             AccessToken = access,
             ExpiresAtUtc = exp,
-            RefreshToken = rt.Token // warto coś zwrócić, żeby schema DTO była spójna
+            RefreshToken = rt.Token 
         };
     }
     

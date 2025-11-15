@@ -1,6 +1,7 @@
 ﻿using Application.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Application.Abstractions;
 
 namespace WebApi.Controllers;
 

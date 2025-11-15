@@ -24,7 +24,7 @@ public class UserService : IUserService
             var pattern = $"%{search.Trim()}%";
             
             query = query.Where(u =>
-                EF.Functions.ILike(u.FullName, pattern) ||
+                EF.Functions.ILike(u.FullName ?? String.Empty, pattern) ||
                 EF.Functions.ILike(u.Email, pattern) ||
                 EF.Functions.ILike(u.UserName, pattern));
         }
@@ -34,7 +34,7 @@ public class UserService : IUserService
             .Select(u => new UserDto
             {
                 Id = u.Id,
-                FullName = u.FullName,
+                FullName = u.FullName ?? string.Empty,
                 Email = u.Email,
                 UserName = u.UserName
             })

@@ -6,18 +6,18 @@ namespace Infrastructure.Configurations;
 
 public class FriendshipConfiguration : IEntityTypeConfiguration<Friendship>
 {
-    public void Configure(EntityTypeBuilder<Friendship> b)
+    public void Configure(EntityTypeBuilder<Friendship> builder)
     {
-        b.ToTable("friendships");
-        b.HasKey(x => x.Id);
+        builder.ToTable("friendships");
+        builder.HasKey(x => x.Id);
 
-        b.Property(x => x.Status).HasMaxLength(20).IsRequired();
-        b.Property(x => x.CreatedAtUtc).IsRequired();
+        builder.Property(x => x.Status).HasMaxLength(20).IsRequired();
+        builder.Property(x => x.CreatedAtUtc).IsRequired();
         
-        b.HasIndex(x => new { x.UserAId, x.UserBId }).IsUnique();
+        builder.HasIndex(x => new { x.UserAId, x.UserBId }).IsUnique();
 
-        b.HasOne(x => x.UserA).WithMany().HasForeignKey(x => x.UserAId).OnDelete(DeleteBehavior.Cascade);
-        b.HasOne(x => x.UserB).WithMany().HasForeignKey(x => x.UserBId).OnDelete(DeleteBehavior.Cascade);
-        b.HasOne(x => x.RequestedByUser).WithMany().HasForeignKey(x => x.RequestedByUserId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.UserA).WithMany().HasForeignKey(x => x.UserAId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.UserB).WithMany().HasForeignKey(x => x.UserBId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.RequestedByUser).WithMany().HasForeignKey(x => x.RequestedByUserId).OnDelete(DeleteBehavior.Cascade);
     }
 }

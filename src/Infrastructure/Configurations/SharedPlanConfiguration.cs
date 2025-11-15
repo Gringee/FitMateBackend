@@ -4,35 +4,35 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Infrastructure.Configurations;
 
-public class SharedPlanConfig : IEntityTypeConfiguration<SharedPlan>
+public class SharedPlanConfiguration : IEntityTypeConfiguration<SharedPlan>
 {
-    public void Configure(EntityTypeBuilder<SharedPlan> b)
+    public void Configure(EntityTypeBuilder<SharedPlan> builder)
     {
-        b.ToTable("shared_plans");
-        b.HasKey(x => x.Id);
+        builder.ToTable("shared_plans");
+        builder.HasKey(x => x.Id);
 
-        b.HasOne(x => x.Plan)
+        builder.HasOne(x => x.Plan)
             .WithMany()
             .HasForeignKey(x => x.PlanId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        b.HasOne(x => x.SharedByUser)
+        builder.HasOne(x => x.SharedByUser)
             .WithMany()
             .HasForeignKey(x => x.SharedByUserId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        b.HasOne(x => x.SharedWithUser)
+        builder.HasOne(x => x.SharedWithUser)
             .WithMany()
             .HasForeignKey(x => x.SharedWithUserId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        b.HasIndex(x => new { x.SharedWithUserId, x.PlanId }).IsUnique();
+        builder.HasIndex(x => new { x.SharedWithUserId, x.PlanId }).IsUnique();
         
-        b.Property(x => x.Status)
+        builder.Property(x => x.Status)
             .IsRequired()
             .HasMaxLength(20)
             .HasDefaultValue("Pending");
 
-        b.Property(x => x.RespondedAtUtc).IsRequired(false);
+        builder.Property(x => x.RespondedAtUtc).IsRequired(false);
     }
 }
