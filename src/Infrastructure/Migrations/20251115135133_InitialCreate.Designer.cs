@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20251113142625_InitialCreate")]
+    [Migration("20251115135133_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -23,6 +23,7 @@ namespace Infrastructure.Migrations
                 .HasAnnotation("ProductVersion", "9.0.9")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
+            NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "citext");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("Domain.Entities.Friendship", b =>
@@ -90,26 +91,6 @@ namespace Infrastructure.Migrations
                     b.HasIndex("CreatedByUserId", "PlanName");
 
                     b.ToTable("plans", (string)null);
-                });
-
-            modelBuilder.Entity("Domain.Entities.PlanAccess", b =>
-                {
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("PlanId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Permission")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)");
-
-                    b.HasKey("UserId", "PlanId");
-
-                    b.HasIndex("PlanId");
-
-                    b.ToTable("PlanAccess");
                 });
 
             modelBuilder.Entity("Domain.Entities.PlanExercise", b =>
@@ -429,19 +410,22 @@ namespace Infrastructure.Migrations
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasColumnType("citext");
 
                     b.Property<string>("FullName")
-                        .HasColumnType("text");
-
-                    b.Property<string>("PasswordHash")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("UserName")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("UserName")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("citext");
 
                     b.HasKey("Id");
 
@@ -451,7 +435,10 @@ namespace Infrastructure.Migrations
                     b.HasIndex("UserName")
                         .IsUnique();
 
-                    b.ToTable("users", (string)null);
+                    b.ToTable("users", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_users_email_format", "\"Email\" ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$'");
+                        });
                 });
 
             modelBuilder.Entity("Domain.Entities.UserRole", b =>
@@ -502,9 +489,9 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("ScheduledId");
 
-                    b.HasIndex("UserId");
-
                     b.HasIndex("Status", "StartedAtUtc");
+
+                    b.HasIndex("UserId", "StartedAtUtc");
 
                     b.ToTable("workout_sessions", (string)null);
                 });
@@ -545,25 +532,6 @@ namespace Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("CreatedByUser");
-                });
-
-            modelBuilder.Entity("Domain.Entities.PlanAccess", b =>
-                {
-                    b.HasOne("Domain.Entities.Plan", "Plan")
-                        .WithMany("Access")
-                        .HasForeignKey("PlanId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Domain.Entities.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Plan");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Domain.Entities.PlanExercise", b =>
@@ -717,8 +685,6 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.Plan", b =>
                 {
-                    b.Navigation("Access");
-
                     b.Navigation("Exercises");
                 });
 

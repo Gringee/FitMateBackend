@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace Application.DTOs;
 
 public class SessionSetDto
@@ -32,26 +34,80 @@ public class WorkoutSessionDto
     public List<SessionExerciseDto> Exercises { get; set; } = new();
 }
 
-// Requests
-public class StartSessionRequest { public Guid ScheduledId { get; set; } }
-
-public class PatchSetRequest
+public class StartSessionRequest : IValidatableObject
 {
+    [Required(ErrorMessage = "ScheduledId is required.")]
+    public Guid ScheduledId { get; set; }
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext _)
+    {
+        if (ScheduledId == Guid.Empty)
+        {
+            yield return new ValidationResult(
+                "ScheduledId must be a non-empty GUID.",
+                new[] { nameof(ScheduledId) });
+        }
+    }
+}
+
+public class PatchSetRequest : IValidatableObject
+{
+    [Range(1, int.MaxValue, ErrorMessage = "ExerciseOrder must be >= 1.")]
     public int ExerciseOrder { get; set; }
+
+    [Range(1, int.MaxValue, ErrorMessage = "SetNumber must be >= 1.")]
     public int SetNumber { get; set; }
+
     public int? RepsDone { get; set; }
     public decimal? WeightDone { get; set; }
     public decimal? Rpe { get; set; }
     public bool? IsFailure { get; set; }
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext _)
+    {
+        if (RepsDone is < 0)
+        {
+            yield return new ValidationResult(
+                "RepsDone cannot be negative.",
+                new[] { nameof(RepsDone) });
+        }
+
+        if (WeightDone is < 0)
+        {
+            yield return new ValidationResult(
+                "WeightDone cannot be negative.",
+                new[] { nameof(WeightDone) });
+        }
+
+        if (Rpe is < 0 or > 10)
+        {
+            yield return new ValidationResult(
+                "Rpe must be between 0 and 10.",
+                new[] { nameof(Rpe) });
+        }
+    }
 }
 
-public class CompleteSessionRequest
+public class CompleteSessionRequest : IValidatableObject
 {
+    [MaxLength(1000, ErrorMessage = "SessionNotes max length is 1000 chars.")]
     public string? SessionNotes { get; set; }
+
     public DateTime? CompletedAtUtc { get; set; }
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext _)
+    {
+        if (CompletedAtUtc is { Kind: DateTimeKind.Local })
+        {
+            yield return new ValidationResult(
+                "CompletedAtUtc should be in UTC (DateTimeKind.Utc).",
+                new[] { nameof(CompletedAtUtc) });
+        }
+    }
 }
 
 public class AbortSessionRequest
 {
-    public string? Reason { get; set; } 
+    [MaxLength(500, ErrorMessage = "Reason max length is 500 chars.")]
+    public string? Reason { get; set; }
 }

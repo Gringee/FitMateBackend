@@ -13,6 +13,4 @@ public class Plan
     
     public Guid CreatedByUserId { get; set; }
     public User CreatedByUser { get; set; } = null!;
-    
-    public ICollection<PlanAccess> Access { get; set; } = new List<PlanAccess>();
 }

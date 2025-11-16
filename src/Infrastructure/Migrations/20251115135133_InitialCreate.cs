@@ -11,6 +11,9 @@ namespace Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.AlterDatabase()
+                .Annotation("Npgsql:PostgresExtension:citext", ",,");
+
             migrationBuilder.CreateTable(
                 name: "roles",
                 columns: table => new
@@ -28,15 +31,16 @@ namespace Infrastructure.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    Email = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
-                    PasswordHash = table.Column<string>(type: "text", nullable: false),
-                    FullName = table.Column<string>(type: "text", nullable: true),
-                    UserName = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    Email = table.Column<string>(type: "citext", maxLength: 200, nullable: false),
+                    PasswordHash = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
+                    FullName = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    UserName = table.Column<string>(type: "citext", maxLength: 50, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_users", x => x.Id);
+                    table.CheckConstraint("CK_users_email_format", "\"Email\" ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$'");
                 });
 
             migrationBuilder.CreateTable(
@@ -181,31 +185,6 @@ namespace Infrastructure.Migrations
                         name: "FK_plan_exercises_plans_PlanId",
                         column: x => x.PlanId,
                         principalTable: "plans",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "PlanAccess",
-                columns: table => new
-                {
-                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    PlanId = table.Column<Guid>(type: "uuid", nullable: false),
-                    Permission = table.Column<string>(type: "character varying(16)", maxLength: 16, nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_PlanAccess", x => new { x.UserId, x.PlanId });
-                    table.ForeignKey(
-                        name: "FK_PlanAccess_plans_PlanId",
-                        column: x => x.PlanId,
-                        principalTable: "plans",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_PlanAccess_users_UserId",
-                        column: x => x.UserId,
-                        principalTable: "users",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -412,11 +391,6 @@ namespace Infrastructure.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_PlanAccess_PlanId",
-                table: "PlanAccess",
-                column: "PlanId");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_plans_CreatedByUserId_PlanName",
                 table: "plans",
                 columns: new[] { "CreatedByUserId", "PlanName" });
@@ -515,9 +489,9 @@ namespace Infrastructure.Migrations
                 columns: new[] { "Status", "StartedAtUtc" });
 
             migrationBuilder.CreateIndex(
-                name: "IX_workout_sessions_UserId",
+                name: "IX_workout_sessions_UserId_StartedAtUtc",
                 table: "workout_sessions",
-                column: "UserId");
+                columns: new[] { "UserId", "StartedAtUtc" });
         }
 
         /// <inheritdoc />
@@ -528,9 +502,6 @@ namespace Infrastructure.Migrations
 
             migrationBuilder.DropTable(
                 name: "plan_sets");
-
-            migrationBuilder.DropTable(
-                name: "PlanAccess");
 
             migrationBuilder.DropTable(
                 name: "refresh_tokens");

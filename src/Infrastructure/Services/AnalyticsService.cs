@@ -27,6 +27,9 @@ public class AnalyticsService : IAnalyticsService
 
     public async Task<OverviewDto> GetOverviewAsync(DateTime fromUtc, DateTime toUtc, CancellationToken ct)
     {
+        if (fromUtc > toUtc)
+            (fromUtc, toUtc) = (toUtc, fromUtc);
+        
         var userId = CurrentUserId();
 
         var sessions = await _db.WorkoutSessions
@@ -74,8 +77,11 @@ public class AnalyticsService : IAnalyticsService
 
     public async Task<IReadOnlyList<TimePointDto>> GetVolumeAsync(DateTime fromUtc, DateTime toUtc, string groupBy, string? exerciseName, CancellationToken ct)
     {
+        if (fromUtc > toUtc)
+            (fromUtc, toUtc) = (toUtc, fromUtc);
+        
         var userId = CurrentUserId();
-        groupBy = (groupBy).ToLowerInvariant();
+        groupBy = (groupBy ?? "day").ToLowerInvariant();
 
         var q = _db.WorkoutSessions
             .AsNoTracking()
@@ -119,6 +125,9 @@ public class AnalyticsService : IAnalyticsService
 
     public async Task<IReadOnlyList<E1rmPointDto>> GetE1RmAsync(string exerciseName, DateTime fromUtc, DateTime toUtc, CancellationToken ct)
     {
+        if (fromUtc > toUtc)
+            (fromUtc, toUtc) = (toUtc, fromUtc);
+        
         var userId = CurrentUserId();
 
         var rows = await _db.WorkoutSessions
@@ -136,7 +145,9 @@ public class AnalyticsService : IAnalyticsService
             .Select(g => new E1rmPointDto
             {
                 Day = g.Key,
-                E1Rm = g.Max(r => r.WeightDone!.Value * (1 + r.RepsDone!.Value / 30m)),
+                E1Rm = g.Max(r =>
+                    r.WeightDone!.Value * (1 + (decimal)r.RepsDone!.Value / 30m)
+                ),
                 SessionId = rows.FirstOrDefault(r => DateOnly.FromDateTime(r.StartedAtUtc.Date) == g.Key)?.Id
             })
             .OrderBy(x => x.Day)
@@ -147,6 +158,9 @@ public class AnalyticsService : IAnalyticsService
 
     public async Task<AdherenceDto> GetAdherenceAsync(DateOnly fromDate, DateOnly toDate, CancellationToken ct)
     {
+        if (fromDate > toDate)
+            (fromDate, toDate) = (toDate, fromDate);
+        
         var userId = CurrentUserId();
 
         int planned = await _db.ScheduledWorkouts

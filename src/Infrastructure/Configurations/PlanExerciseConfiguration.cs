@@ -17,5 +17,12 @@ public sealed class PlanExerciseConfiguration : IEntityTypeConfiguration<PlanExe
                .WithOne(s => s.PlanExercise)
                .HasForeignKey(s => s.PlanExerciseId)
                .OnDelete(DeleteBehavior.Cascade);
+        
+        builder.HasOne(e => e.Plan)
+            .WithMany(p => p.Exercises)
+            .HasForeignKey(e => e.PlanId)
+            .OnDelete(DeleteBehavior.Cascade);
+        
+        builder.HasIndex(e => e.PlanId);
     }
 }

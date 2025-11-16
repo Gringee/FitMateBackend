@@ -1,10 +1,7 @@
 using Application.Abstractions;
 using Application.DTOs;
-using Domain.Entities;
-using Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace WebApi.Controllers;
 
@@ -14,46 +11,119 @@ namespace WebApi.Controllers;
 public class UsersController : ControllerBase
 {
     private readonly IUserService _userService;
-    private readonly AppDbContext _db;
+    private readonly IUserAdminService _adminService;
 
-    public UsersController(IUserService userService, AppDbContext db)
+    public UsersController(IUserService userService, IUserAdminService adminService)
     {
         _userService = userService;
-        _db = db;
+        _adminService = adminService;
     }
 
-    // GET /api/users?search=filip
+    /// <summary>
+    /// Zwraca listę użytkowników (tylko dla Admina).
+    /// </summary>
+    /// <remarks>
+    /// Możesz filtrować po fragmencie imienia, adresu e-mail lub nazwy użytkownika.
+    /// </remarks>
+    /// <param name="search">
+    /// (Opcjonalne) fragment <c>FullName</c>, <c>Email</c> albo <c>UserName</c>.
+    /// </param>
+    /// <response code="200">Lista użytkowników.</response>
     [HttpGet]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<UserDto>))]
     public async Task<ActionResult<List<UserDto>>> GetAll([FromQuery] string? search, CancellationToken ct)
     {
         var users = await _userService.GetAllAsync(search, ct);
         return Ok(users);
     }
 
-    // PUT /api/users/{id}/role?roleName=Admin
+    /// <summary>
+    /// Przypisuje rolę do użytkownika.
+    /// </summary>
+    /// <remarks>
+    /// Przykład: <c>roleName=Admin</c> albo <c>roleName=User</c>.<br/>
+    /// Jeśli użytkownik już ma tę rolę, zwrócone zostanie 409 (Conflict).
+    /// </remarks>
+    /// <param name="id">Id użytkownika.</param>
+    /// <param name="roleName">Nazwa roli (np. <c>Admin</c>, <c>User</c>).</param>
+    /// <response code="204">Rola została przypisana.</response>
+    /// <response code="400">Niepoprawna nazwa roli lub brak <c>roleName</c>.</response>
+    /// <response code="404">Użytkownik lub rola nie istnieje.</response>
+    /// <response code="409">Użytkownik już posiada tę rolę.</response>
     [HttpPut("{id:guid}/role")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> AssignRole(Guid id, [FromQuery] string roleName, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(roleName))
             return BadRequest("Role name is required.");
 
-        var user = await _db.Users
-            .Include(u => u.UserRoles)
-            .FirstOrDefaultAsync(u => u.Id == id, ct);
+        var result = await _adminService.AssignRoleAsync(id, roleName, ct);
 
-        if (user is null)
-            return NotFound();
-
-        var role = await _db.Roles.FirstOrDefaultAsync(r => r.Name == roleName, ct);
-        if (role is null)
-            return BadRequest("Role not found.");
-
-        if (!user.UserRoles.Any(ur => ur.RoleId == role.Id))
+        return result switch
         {
-            _db.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = role.Id });
-            await _db.SaveChangesAsync(ct);
-        }
+            AssignRoleResult.UserNotFound   => NotFound("User not found."),
+            AssignRoleResult.RoleNotFound   => BadRequest("Role not found."),
+            AssignRoleResult.AlreadyHasRole => Conflict("User already has this role."),
+            AssignRoleResult.Ok             => NoContent(),
+            _                               => StatusCode(StatusCodes.Status500InternalServerError)
+        };
+    }
 
-        return NoContent();
+    /// <summary>
+    /// Usuwa użytkownika (oprócz użytkowników z rolą Admin).
+    /// </summary>
+    /// <param name="id">Id użytkownika do usunięcia.</param>
+    /// <response code="204">Użytkownik został usunięty.</response>
+    /// <response code="400">Próba usunięcia użytkownika z rolą Admin.</response>
+    /// <response code="404">Użytkownik nie istnieje.</response>
+    [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+    {
+        var result = await _adminService.DeleteUserAsync(id, ct);
+
+        return result switch
+        {
+            DeleteUserResult.NotFound => NotFound(),
+            DeleteUserResult.IsAdmin  => BadRequest("Nie można usunąć użytkownika z rolą Admin."),
+            DeleteUserResult.Ok       => NoContent(),
+            _                         => StatusCode(StatusCodes.Status500InternalServerError)
+        };
+    }
+
+    /// <summary>
+    /// Resetuje hasło użytkownika.
+    /// </summary>
+    /// <remarks>
+    /// Hasło jest nadpisywane nową wartością i ponownie hashowane w bazie.
+    /// Używaj tylko jako Admin (np. gdy użytkownik zapomni hasła).
+    /// </remarks>
+    /// <param name="id">Id użytkownika.</param>
+    /// <param name="dto">Nowe hasło.</param>
+    /// <response code="204">Hasło zostało zresetowane.</response>
+    /// <response code="400">Niepoprawne dane wejściowe (za krótkie hasło itp.).</response>
+    /// <response code="404">Użytkownik nie istnieje.</response>
+    [HttpPost("{id:guid}/reset-password")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ResetPassword(Guid id, [FromBody] ResetPasswordDto dto, CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        var result = await _adminService.ResetPasswordAsync(id, dto.NewPassword, ct);
+
+        return result switch
+        {
+            ResetPasswordResult.NotFound => NotFound(),
+            ResetPasswordResult.Ok       => NoContent(),
+            _                            => StatusCode(StatusCodes.Status500InternalServerError)
+        };
     }
 }

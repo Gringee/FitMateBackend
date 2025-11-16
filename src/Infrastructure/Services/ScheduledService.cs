@@ -5,17 +5,17 @@ using Domain.Entities;
 using Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Infrastructure.Persistence;
-using Microsoft.AspNetCore.Http;              
-using Application.Common.Security;          
+using Microsoft.AspNetCore.Http;
+using Application.Common.Security;
 
 namespace Infrastructure.Services;
 
 public sealed class ScheduledService : IScheduledService
 {
     private readonly AppDbContext _db;
-    private readonly IHttpContextAccessor _http; 
+    private readonly IHttpContextAccessor _http;
 
-    public ScheduledService(AppDbContext db, IHttpContextAccessor http) 
+    public ScheduledService(AppDbContext db, IHttpContextAccessor http)
     {
         _db = db;
         _http = http;
@@ -33,11 +33,11 @@ public sealed class ScheduledService : IScheduledService
 
         var (d, t) = ParseDateTime(dto.Date, dto.Time);
         var status = ParseStatus(dto.Status);
-        
+
         var plan = await _db.Plans
-            .Include(p => p.Exercises).ThenInclude(e => e.Sets)
-            .FirstOrDefaultAsync(p => p.Id == dto.PlanId && p.CreatedByUserId == userId, ct)
-            ?? throw new KeyNotFoundException("Plan not found");
+                       .Include(p => p.Exercises).ThenInclude(e => e.Sets)
+                       .FirstOrDefaultAsync(p => p.Id == dto.PlanId && p.CreatedByUserId == userId, ct)
+                   ?? throw new KeyNotFoundException("Plan not found");
 
         var sw = new ScheduledWorkout
         {
@@ -45,10 +45,12 @@ public sealed class ScheduledService : IScheduledService
             Date = d,
             Time = t,
             PlanId = plan.Id,
-            PlanName = dto.PlanName,
+            PlanName = string.IsNullOrWhiteSpace(dto.PlanName)
+                ? plan.PlanName
+                : dto.PlanName,
             Notes = dto.Notes ?? plan.Notes,
             Status = status,
-            UserId = userId 
+            UserId = userId
         };
 
         var exercisesSrc = (dto.Exercises is { Count: > 0 })
@@ -59,7 +61,7 @@ public sealed class ScheduledService : IScheduledService
                 sets: e.Sets
                     .Select(s => new SetDto { Reps = s.Reps, Weight = s.Weight })
                     .ToList()
-              ));
+            ));
 
         foreach (var ex in exercisesSrc)
         {
@@ -82,6 +84,7 @@ public sealed class ScheduledService : IScheduledService
                     Weight = s.Weight
                 });
             }
+
             sw.Exercises.Add(se);
         }
 
@@ -136,22 +139,34 @@ public sealed class ScheduledService : IScheduledService
     {
         var userId = CurrentUserId();
 
-        var sw = await _db.ScheduledWorkouts
-            .Include(s => s.Exercises).ThenInclude(e => e.Sets)
+        var existing = await _db.ScheduledWorkouts
             .FirstOrDefaultAsync(s => s.Id == id && s.UserId == userId, ct);
-        if (sw is null) return null;
 
-        var (d, t) = ParseDateTime(dto.Date, dto.Time);
-        sw.Date = d;
-        sw.Time = t;
-        sw.PlanId = dto.PlanId;
-        sw.PlanName = dto.PlanName;
-        sw.Notes = dto.Notes;
-        sw.Status = ParseStatus(dto.Status);
+        if (existing is null)
+            return null;
 
-        _db.RemoveRange(sw.Exercises.SelectMany(e => e.Sets));
-        _db.RemoveRange(sw.Exercises);
-        sw.Exercises.Clear();
+        var plan = await _db.Plans
+                       .FirstOrDefaultAsync(p => p.Id == dto.PlanId && p.CreatedByUserId == userId, ct)
+                   ?? throw new KeyNotFoundException("Plan not found or not owned by current user.");
+
+        _db.ScheduledWorkouts.Remove(existing);
+
+        var (date, time) = ParseDateTime(dto.Date, dto.Time);
+
+        var sw = new ScheduledWorkout
+        {
+            Id = id,
+            UserId = userId,
+            Date = date,
+            Time = time,
+            PlanId = plan.Id,
+            PlanName = string.IsNullOrWhiteSpace(dto.PlanName)
+                ? plan.PlanName
+                : dto.PlanName,
+            Notes = dto.Notes ?? plan.Notes,
+            Status = ParseStatus(dto.Status),
+            Exercises = new List<ScheduledExercise>()
+        };
 
         foreach (var ex in dto.Exercises)
         {
@@ -160,8 +175,10 @@ public sealed class ScheduledService : IScheduledService
                 Id = Guid.NewGuid(),
                 ScheduledWorkoutId = sw.Id,
                 Name = ex.Name,
-                RestSeconds = ex.Rest
+                RestSeconds = ex.Rest,
+                Sets = new List<ScheduledSet>()
             };
+
             var i = 1;
             foreach (var s in ex.Sets)
             {
@@ -174,10 +191,14 @@ public sealed class ScheduledService : IScheduledService
                     Weight = s.Weight
                 });
             }
+
             sw.Exercises.Add(se);
         }
 
+        _db.ScheduledWorkouts.Add(sw);
+
         await _db.SaveChangesAsync(ct);
+
         return Map(sw);
     }
 
@@ -196,7 +217,7 @@ public sealed class ScheduledService : IScheduledService
 
     public async Task<ScheduledDto?> DuplicateAsync(Guid id, CancellationToken ct = default)
     {
-        var userId = CurrentUserId(); // ← NEW
+        var userId = CurrentUserId();
 
         var s = await _db.ScheduledWorkouts
             .Include(x => x.Exercises).ThenInclude(e => e.Sets)
@@ -212,7 +233,7 @@ public sealed class ScheduledService : IScheduledService
             PlanName = s.PlanName,
             Notes = s.Notes,
             Status = s.Status,
-            UserId = userId 
+            UserId = userId
         };
         foreach (var ex in s.Exercises)
         {
@@ -234,6 +255,7 @@ public sealed class ScheduledService : IScheduledService
                     Weight = set.Weight
                 });
             }
+
             copy.Exercises.Add(se);
         }
 
@@ -241,17 +263,19 @@ public sealed class ScheduledService : IScheduledService
         await _db.SaveChangesAsync(ct);
         return Map(copy);
     }
-    
+
     private static (DateOnly, TimeOnly?) ParseDateTime(string date, string? time)
     {
         var d = DateOnly.ParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture);
-        TimeOnly? t = string.IsNullOrWhiteSpace(time) ? null : TimeOnly.ParseExact(time, "HH:mm", CultureInfo.InvariantCulture);
+        TimeOnly? t = string.IsNullOrWhiteSpace(time)
+            ? null
+            : TimeOnly.ParseExact(time, "HH:mm", CultureInfo.InvariantCulture);
         return (d, t);
     }
 
     private static ScheduledStatus ParseStatus(string? s)
         => string.IsNullOrWhiteSpace(s) ? ScheduledStatus.Planned
-           : s.Trim().ToLowerInvariant() == "completed" ? ScheduledStatus.Completed : ScheduledStatus.Planned;
+            : s.Trim().ToLowerInvariant() == "completed" ? ScheduledStatus.Completed : ScheduledStatus.Planned;
 
     private static ScheduledDto Map(ScheduledWorkout s) => new()
     {
@@ -269,7 +293,7 @@ public sealed class ScheduledService : IScheduledService
                 Name = e.Name,
                 Rest = e.RestSeconds,
                 Sets = e.Sets.OrderBy(x => x.SetNumber)
-                             .Select(x => new SetDto { Reps = x.Reps, Weight = x.Weight }).ToList()
+                    .Select(x => new SetDto { Reps = x.Reps, Weight = x.Weight }).ToList()
             }).ToList()
     };
 }

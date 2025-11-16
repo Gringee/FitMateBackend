@@ -47,13 +47,13 @@ public class UserService : IUserService
             throw new ArgumentNullException(nameof(dto));
         
         if (string.IsNullOrWhiteSpace(dto.UserName))
-            throw new ArgumentException("UserName jest wymagany.", nameof(dto));
+            throw new ArgumentException("UserName is required.", nameof(dto));
 
         if (string.IsNullOrWhiteSpace(dto.Email))
-            throw new ArgumentException("Email jest wymagany.", nameof(dto));
+            throw new ArgumentException("Email is required.", nameof(dto));
 
         if (string.IsNullOrWhiteSpace(dto.FullName))
-            throw new ArgumentException("FullName jest wymagany.", nameof(dto));
+            throw new ArgumentException("FullName is required.", nameof(dto));
 
         var normalizedUserName = dto.UserName.Trim();
         var normalizedEmail = dto.Email.Trim().ToLowerInvariant();
@@ -63,14 +63,14 @@ public class UserService : IUserService
 
         if (userNameExists)
             throw new InvalidOperationException(
-                $"UserName '{normalizedUserName}' jest już zajęty.");
+                $"UserName '{normalizedUserName}' is already taken.");
         
         var emailExists = await _db.Users
             .AnyAsync(u => u.Email.ToLower() == normalizedEmail, ct);
 
         if (emailExists)
             throw new InvalidOperationException(
-                $"Email '{dto.Email}' jest już używany.");
+                $"Email '{dto.Email}' is already in use.");
 
         var user = new User
         {
@@ -95,18 +95,18 @@ public class UserService : IUserService
     {
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == id, ct);
         if (user is null)
-            throw new KeyNotFoundException($"Użytkownik o Id={id} nie istnieje.");
+            throw new KeyNotFoundException($"User with Id={id} does not exist.");
 
         if (string.IsNullOrWhiteSpace(dto.UserName))
-            throw new ArgumentException("UserName jest wymagany.", nameof(dto));
+            throw new ArgumentException("UserName is required.", nameof(dto));
 
         if (string.IsNullOrWhiteSpace(dto.Email))
-            throw new ArgumentException("Email jest wymagany.", nameof(dto));
+            throw new ArgumentException("Email is required.", nameof(dto));
 
         if (string.IsNullOrWhiteSpace(dto.FullName))
-            throw new ArgumentException("FullName jest wymagany.", nameof(dto));
+            throw new ArgumentException("FullName is required.", nameof(dto));
 
-        var normalizedUserName = dto.UserName.Trim();
+        var normalizedUserName = dto.UserName.Trim().ToLowerInvariant();
         var normalizedEmail = dto.Email.Trim().ToLowerInvariant();
         
         var userNameExists = await _db.Users
@@ -114,14 +114,14 @@ public class UserService : IUserService
 
         if (userNameExists)
             throw new InvalidOperationException(
-                $"UserName '{normalizedUserName}' jest już zajęty.");
+                $"UserName '{normalizedUserName}' is already taken.");
         
         var emailExists = await _db.Users
-            .AnyAsync(u => u.Id != id && u.Email.ToLower() == normalizedEmail, ct);
+            .AnyAsync(u => u.Id != id && u.Email == normalizedEmail, ct);
 
         if (emailExists)
             throw new InvalidOperationException(
-                $"Email '{dto.Email}' jest już używany.");
+                $"Email '{dto.Email}' is already in use.");
 
         user.FullName = dto.FullName.Trim();
         user.Email = normalizedEmail;
@@ -129,4 +129,6 @@ public class UserService : IUserService
 
         await _db.SaveChangesAsync(ct);
     }
+    
+    
 }

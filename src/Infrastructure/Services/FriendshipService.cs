@@ -33,7 +33,7 @@ public class FriendshipService : IFriendshipService
     public async Task SendRequestAsync(Guid toUserId, CancellationToken ct)
     {
         var me = CurrentUserId();
-        if (me == toUserId) throw new InvalidOperationException("Nie mozna dodac siebie.");
+        if (me == toUserId) throw new InvalidOperationException("You cannot add yourself.");
 
         var (a, b) = CanonicalPair(me, toUserId);
 
@@ -42,7 +42,7 @@ public class FriendshipService : IFriendshipService
 
         if (existing != null)
         {
-            if (existing.Status == "Accepted") throw new InvalidOperationException("Juz jestescie znajomymi.");
+            if (existing.Status == "Accepted") throw new InvalidOperationException("You are already friends.");
             if (existing.Status == "Pending")
             {
                 if (existing.RequestedByUserId == toUserId)
@@ -52,7 +52,7 @@ public class FriendshipService : IFriendshipService
                     await _db.SaveChangesAsync(ct);
                     return;
                 }
-                throw new InvalidOperationException("Zaproszenie jest juz w toku.");
+                throw new InvalidOperationException("A friend request is already in progress.");
             }
             existing.Status = "Pending";
             existing.RequestedByUserId = me;
@@ -77,16 +77,16 @@ public class FriendshipService : IFriendshipService
     public async Task SendRequestByUserNameAsync(string toUserName, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(toUserName))
-            throw new ArgumentException("Username jest wymagany.", nameof(toUserName));
-
-        var normalized = toUserName.Trim();
+            throw new ArgumentException("Username is required.", nameof(toUserName));
         
+        var normalized = toUserName.Trim().ToLowerInvariant();
+    
         var toUser = await _db.Users
             .FirstOrDefaultAsync(u => u.UserName == normalized, ct);
 
         if (toUser is null)
-            throw new KeyNotFoundException("Użytkownik o podanym username nie istnieje.");
-        
+            throw new KeyNotFoundException("A user with the provided username does not exist.");
+    
         await SendRequestAsync(toUser.Id, ct);
     }
 
@@ -94,13 +94,13 @@ public class FriendshipService : IFriendshipService
     {
         var me = CurrentUserId();
         var fr = await _db.Friendships.FirstOrDefaultAsync(x => x.Id == requestId, ct)
-                 ?? throw new KeyNotFoundException("Nie znaleziono zaproszenia.");
+                 ?? throw new KeyNotFoundException("Friend request not found.");
         
         var meIsParticipant = fr.UserAId == me || fr.UserBId == me;
         if (!meIsParticipant) throw new UnauthorizedAccessException();
 
-        if (fr.Status != "Pending") throw new InvalidOperationException("Zaproszenie juz rozpatrzone.");
-        if (fr.RequestedByUserId == me) throw new InvalidOperationException("Nie mozesz odpowiadac na wlasne zaproszenie.");
+        if (fr.Status != "Pending") throw new InvalidOperationException("The friend request has already been processed.");
+        if (fr.RequestedByUserId == me) throw new InvalidOperationException("You cannot respond to your own friend request.");
 
         fr.Status = accept ? "Accepted" : "Rejected";
         fr.RespondedAtUtc = DateTime.UtcNow;
@@ -134,45 +134,59 @@ public class FriendshipService : IFriendshipService
     public async Task<IReadOnlyList<FriendRequestDto>> GetIncomingAsync(CancellationToken ct)
     {
         var me = CurrentUserId();
+        
+        var meName = await _db.Users
+            .Where(x => x.Id == me)
+            .Select(x => x.FullName ?? string.Empty)
+            .FirstOrDefaultAsync(ct);
 
-        var q = from f in _db.Friendships
-                join uFrom in _db.Users on f.RequestedByUserId equals uFrom.Id
-                join uA in _db.Users on f.UserAId equals uA.Id
-                join uB in _db.Users on f.UserBId equals uB.Id
-                where f.Status == "Pending" && (f.UserAId == me || f.UserBId == me) && f.RequestedByUserId != me
-                select new FriendRequestDto
-                {
-                    Id = f.Id,
-                    FromUserId = uFrom.Id,
-                    FromName = uFrom.FullName ?? string.Empty,
-                    ToUserId = me,
-                    ToName = _db.Users.Where(x => x.Id == me).Select(x => x.FullName).FirstOrDefault()!,
-                    Status = f.Status,
-                    CreatedAtUtc = f.CreatedAtUtc,
-                    RespondedAtUtc = f.RespondedAtUtc
-                };
+        var q =
+            from f in _db.Friendships
+            join uFrom in _db.Users on f.RequestedByUserId equals uFrom.Id
+            where f.Status == "Pending"
+                  && (f.UserAId == me || f.UserBId == me)   
+                  && f.RequestedByUserId != me
+            select new FriendRequestDto
+            {
+                Id = f.Id,
+                FromUserId = uFrom.Id,
+                FromName = uFrom.FullName ?? string.Empty,
+                ToUserId = me,
+                ToName = meName ?? string.Empty,
+                Status = f.Status,
+                CreatedAtUtc = f.CreatedAtUtc,
+                RespondedAtUtc = f.RespondedAtUtc
+            };
 
         return await q.AsNoTracking().ToListAsync(ct);
     }
+
 
     public async Task<IReadOnlyList<FriendRequestDto>> GetOutgoingAsync(CancellationToken ct)
     {
         var me = CurrentUserId();
 
-        var q = from f in _db.Friendships
-                join uTo in _db.Users on (f.UserAId == me ? f.UserBId : f.UserAId) equals uTo.Id
-                where f.Status == "Pending" && f.RequestedByUserId == me
-                select new FriendRequestDto
-                {
-                    Id = f.Id,
-                    FromUserId = me,
-                    FromName = _db.Users.Where(x => x.Id == me).Select(x => x.FullName).FirstOrDefault()!,
-                    ToUserId = uTo.Id,
-                    ToName = uTo.FullName ?? string.Empty,
-                    Status = f.Status,
-                    CreatedAtUtc = f.CreatedAtUtc,
-                    RespondedAtUtc = f.RespondedAtUtc
-                };
+        var meName = await _db.Users
+            .Where(x => x.Id == me)
+            .Select(x => x.FullName ?? string.Empty)
+            .FirstOrDefaultAsync(ct);
+
+        var q =
+            from f in _db.Friendships
+            where f.Status == "Pending" && f.RequestedByUserId == me
+            join uTo in _db.Users
+                on (f.UserAId == me ? f.UserBId : f.UserAId) equals uTo.Id
+            select new FriendRequestDto
+            {
+                Id = f.Id,
+                FromUserId = me,
+                FromName = meName ?? string.Empty,
+                ToUserId = uTo.Id,
+                ToName = uTo.FullName ?? string.Empty,
+                Status = f.Status,
+                CreatedAtUtc = f.CreatedAtUtc,
+                RespondedAtUtc = f.RespondedAtUtc
+            };
 
         return await q.AsNoTracking().ToListAsync(ct);
     }

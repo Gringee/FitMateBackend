@@ -8,6 +8,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.Filters;
+using WebApi.Middleware;
+using Microsoft.AspNetCore.Mvc;
+using System.Reflection;
+using WebApi.Swagger;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,18 +36,40 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IFriendshipService, FriendshipService>();
+builder.Services.AddScoped<IUserAdminService, UserAdminService>();
 builder.Services.AddHttpContextAccessor();
 
 // ---------------- Controllers (bez globalnego [Authorize]) ----------------
 builder.Services.AddControllers();
+
+//Globalne tłumaczenie ModelState na te same ProblemDetails,
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var problemDetails = new ValidationProblemDetails(context.ModelState)
+        {
+            Status = StatusCodes.Status400BadRequest,
+            Title = "Invalid request body.",
+            Instance = context.HttpContext.Request.Path
+        };
+
+        return new BadRequestObjectResult(problemDetails);
+    };
+});
 
 // ---------------- Swagger ----------------
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new() { Title = "FitMate API", Version = "v1" });
+    
+    c.AddServer(new OpenApiServer
+    {
+        Url = "http://localhost:8080",
+        Description = "Local development server"
+    });
 
-    // NAZWA MUSI BYĆ "oauth2", bo taką nazwę generuje SecurityRequirementsOperationFilter
     c.AddSecurityDefinition("oauth2", new OpenApiSecurityScheme
     {
         Type = SecuritySchemeType.Http,
@@ -52,8 +78,14 @@ builder.Services.AddSwaggerGen(c =>
         In = ParameterLocation.Header,
         Description = "Wklej SAM token (bez 'Bearer ')"
     });
-    
+
     c.OperationFilter<SecurityRequirementsOperationFilter>();
+    
+    c.OperationFilter<DefaultErrorResponsesOperationFilter>();
+    
+    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    c.IncludeXmlComments(xmlPath);
 });
 
 
@@ -99,14 +131,7 @@ app.UseSwaggerUI(c =>
 
 app.UseCors("AllowMyReactApp");
 
-app.Use(async (ctx, next) =>
-{
-    try { await next(); }
-    catch (UnauthorizedAccessException)
-    {
-        ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
-    }
-});
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.UseAuthentication();
 app.UseAuthorization();

@@ -7,8 +7,6 @@ public static class DbSeeder
 {
     public static async Task SeedAsync(AppDbContext db, CancellationToken ct = default)
     {
-        await db.Database.MigrateAsync(ct);
-
         if (!await db.Roles.AnyAsync(ct))
         {
             db.Roles.AddRange(

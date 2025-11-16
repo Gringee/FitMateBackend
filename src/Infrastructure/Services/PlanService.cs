@@ -97,46 +97,53 @@ public sealed class PlanService : IPlanService
     public async Task<PlanDto?> UpdateAsync(Guid id, CreatePlanDto dto, CancellationToken ct = default)
     {
         var userId = CurrentUserId();
-
+        
         var plan = await _db.Plans
-            .Include(p => p.Exercises).ThenInclude(e => e.Sets)
             .FirstOrDefaultAsync(p => p.Id == id && p.CreatedByUserId == userId, ct);
-        if (plan is null) return null;
 
+        if (plan is null)
+            return null;
+        
         plan.PlanName = dto.PlanName;
-        plan.Type = dto.Type;
-        plan.Notes = dto.Notes;
+        plan.Type     = dto.Type;
+        plan.Notes    = dto.Notes;
+        
+        await _db.PlanSets
+            .Where(s => s.PlanExercise.PlanId == id)
+            .ExecuteDeleteAsync(ct);   
 
-        _db.RemoveRange(plan.Exercises.SelectMany(e => e.Sets));
-        _db.RemoveRange(plan.Exercises);
-        plan.Exercises.Clear();
-
+        await _db.PlanExercises
+            .Where(e => e.PlanId == id)
+            .ExecuteDeleteAsync(ct);
+        
         foreach (var ex in dto.Exercises)
         {
             var pe = new PlanExercise
             {
-                Id = Guid.NewGuid(),
-                PlanId = plan.Id,
-                Name = ex.Name,
+                Id          = Guid.NewGuid(),
+                PlanId      = plan.Id,
+                Name        = ex.Name,
                 RestSeconds = ex.Rest
             };
+
             var i = 1;
             foreach (var s in ex.Sets)
             {
                 pe.Sets.Add(new PlanSet
                 {
-                    Id = Guid.NewGuid(),
+                    Id             = Guid.NewGuid(),
                     PlanExerciseId = pe.Id,
-                    SetNumber = i++,
-                    Reps = s.Reps,
-                    Weight = s.Weight
+                    SetNumber      = i++,
+                    Reps           = s.Reps,
+                    Weight         = s.Weight
                 });
             }
-            plan.Exercises.Add(pe);
-        }
 
+            _db.PlanExercises.Add(pe);
+        }
+        
         await _db.SaveChangesAsync(ct);
-        return Map(plan);
+        return await GetByIdAsync(id, ct);
     }
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken ct = default)
@@ -165,6 +172,7 @@ public sealed class PlanService : IPlanService
         {
             Id = Guid.NewGuid(),
             PlanName = p.PlanName + " (Copy)",
+            Type = p.Type,
             Notes = p.Notes,
             CreatedByUserId = userId
         };
@@ -200,26 +208,30 @@ public sealed class PlanService : IPlanService
     public async Task ShareToUserAsync(Guid planId, Guid sharedWithUserId, CancellationToken ct)
     {
         var sharedById = CurrentUserId();
+        if (sharedWithUserId == sharedById)
+            throw new InvalidOperationException("You cannot share a plan with yourself.");
 
         var plan = await _db.Plans
                        .FirstOrDefaultAsync(p => p.Id == planId && p.CreatedByUserId == sharedById, ct)
-                   ?? throw new UnauthorizedAccessException("Nie masz uprawnień do tego planu.");
+                   ?? throw new UnauthorizedAccessException("You do not have permission to access this plan.");
+
+        var targetExists = await _db.Users.AnyAsync(u => u.Id == sharedWithUserId, ct);
+        if (!targetExists)
+            throw new KeyNotFoundException("Target user does not exist.");
 
         var already = await _db.SharedPlans
             .AnyAsync(x => x.PlanId == planId && x.SharedWithUserId == sharedWithUserId, ct);
-
         if (already)
-            throw new InvalidOperationException("Plan już został udostępniony temu użytkownikowi.");
+            throw new InvalidOperationException("This plan has already been shared with this user.");
 
-        var shared = new SharedPlan
+        _db.SharedPlans.Add(new SharedPlan
         {
             Id = Guid.NewGuid(),
             PlanId = plan.Id,
             SharedByUserId = sharedById,
             SharedWithUserId = sharedWithUserId
-        };
+        });
 
-        _db.SharedPlans.Add(shared);
         await _db.SaveChangesAsync(ct);
     }
 
@@ -229,9 +241,9 @@ public sealed class PlanService : IPlanService
 
         var plans = await _db.SharedPlans
             .Include(sp => sp.Plan).ThenInclude(p => p.Exercises).ThenInclude(e => e.Sets)
-            .Where(sp => sp.SharedWithUserId == myId)
-            .Select(sp => sp.Plan)
+            .Where(sp => sp.SharedWithUserId == myId && sp.Status == "Accepted") 
             .AsNoTracking()
+            .Select(sp => sp.Plan)
             .ToListAsync(ct);
 
         return plans.Select(Map).ToList();
@@ -243,10 +255,10 @@ public sealed class PlanService : IPlanService
 
         var shared = await _db.SharedPlans
                          .FirstOrDefaultAsync(sp => sp.Id == sharedPlanId && sp.SharedWithUserId == userId, ct)
-                     ?? throw new KeyNotFoundException("Nie znaleziono udostępnionego planu.");
+                     ?? throw new KeyNotFoundException("Shared plan not found.");
 
         if (shared.Status != "Pending")
-            throw new InvalidOperationException("Plan został już wcześniej zaakceptowany lub odrzucony.");
+            throw new InvalidOperationException("This plan has already been accepted or rejected previously.");
 
         shared.Status = accept ? "Accepted" : "Rejected";
         shared.RespondedAtUtc = DateTime.UtcNow;

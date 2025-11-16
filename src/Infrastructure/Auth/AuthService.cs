@@ -20,17 +20,21 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request, CancellationToken ct)
     {
-        var exists = await _db.Users.AnyAsync(u => u.Email == request.Email, ct);
-        if (exists) throw new InvalidOperationException("Email already registered.");
-        
+        var email = request.Email.Trim().ToLowerInvariant();
         var uname = request.UserName.Trim().ToLowerInvariant();
-        if (await _db.Users.AnyAsync(u => u.UserName == uname, ct))
-            throw new InvalidOperationException("UserName already taken.");
+
+        var existsMail  = await _db.Users
+            .AnyAsync(u => u.Email == email, ct); 
+        if (existsMail) throw new InvalidOperationException("Email already registered.");
+        
+        var existsUserName = await _db.Users
+            .AnyAsync(u => u.UserName == uname, ct);
+        if (existsUserName) throw new InvalidOperationException("Username already registered.");
 
         var user = new User
         {
             Id = Guid.NewGuid(),
-            Email = request.Email,
+            Email = email,
             PasswordHash = BCryptNet.HashPassword(request.Password),
             FullName = request.FullName.Trim(),
             UserName = uname
@@ -67,11 +71,11 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken ct)
     {
-        var id = request.UserNameOrEmail.Trim();
+        var id = request.UserNameOrEmail.Trim().ToLowerInvariant();
+
         var user = await _db.Users
             .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
-            .FirstOrDefaultAsync(u =>
-                u.Email == id || u.UserName == id.ToLower(), ct);
+            .FirstOrDefaultAsync(u => u.Email == id || u.UserName == id, ct);
 
         if (user == null || !BCryptNet.Verify(request.Password, user.PasswordHash))
             throw new InvalidOperationException("Invalid credentials.");
