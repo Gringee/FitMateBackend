@@ -4,215 +4,120 @@ namespace Application.DTOs.Analytics;
 
 public class OverviewDto
 {
-    [Range(0, double.MaxValue)] public decimal TotalVolume { get; set; }
-
+    public decimal TotalVolume { get; set; }
     public double AvgIntensity { get; set; }
-
-    [Range(0, int.MaxValue)] public int SessionsCount { get; set; }
-
-    [Range(0, 100)] public double AdherencePct { get; set; }
-
-    [Range(0, int.MaxValue)] public int NewPrs { get; set; }
+    public int SessionsCount { get; set; }
+    public double AdherencePct { get; set; }
+    public int NewPrs { get; set; }
 }
 
 public class TimePointDto
 {
-    [Required]
-    [MaxLength(32)] // "2025-11-01" albo "2025-W45" – 32 to aż nadto
     public string Period { get; set; } = default!;
-
     public decimal Value { get; set; }
-
-    // przy groupBy=exercise będzie wypełnione
     public string? ExerciseName { get; set; }
 }
 
 public class E1rmPointDto
 {
     public DateOnly Day { get; set; }
-
-    [Range(0, double.MaxValue)] public decimal E1Rm { get; set; }
-
+    public decimal E1Rm { get; set; }
     public Guid? SessionId { get; set; }
 }
 
 public class AdherenceDto
 {
-    [Range(0, int.MaxValue)] public int Planned { get; set; }
-
-    [Range(0, int.MaxValue)] public int Completed { get; set; }
-
+    public int Planned { get; set; }
+    public int Completed { get; set; }
     public int Missed => Planned - Completed < 0 ? 0 : Planned - Completed;
-
-    [Range(0, 100)]
-    public double AdherencePct => Planned == 0
-        ? 0
-        : Math.Round((double)Completed / Planned * 100, 1);
+    public double AdherencePct => Planned == 0 ? 0 : Math.Round((double)Completed / Planned * 100, 1);
 }
 
 public class PlanVsActualItemDto
 {
-    [Required] [MaxLength(200)] public string ExerciseName { get; set; } = default!;
-
-    [Range(1, int.MaxValue)] public int SetNumber { get; set; }
-
-    [Range(0, int.MaxValue)] public int RepsPlanned { get; set; }
-
-    [Range(0, double.MaxValue)] public decimal WeightPlanned { get; set; }
-
-    [Range(0, int.MaxValue)] public int? RepsDone { get; set; }
-
-    [Range(0, double.MaxValue)] public decimal? WeightDone { get; set; }
-
-    [Range(0, 10)] public decimal? Rpe { get; set; }
-
+    public string ExerciseName { get; set; } = default!;
+    public int SetNumber { get; set; }
+    public int RepsPlanned { get; set; }
+    public decimal WeightPlanned { get; set; }
+    public int? RepsDone { get; set; }
+    public decimal? WeightDone { get; set; }
+    public decimal? Rpe { get; set; }
     public bool? IsFailure { get; set; }
-
+    public bool IsExtra { get; set; }
     public int RepsDiff => (RepsDone ?? 0) - RepsPlanned;
     public decimal WeightDiff => (WeightDone ?? 0) - WeightPlanned;
 }
 
 public class OverviewQueryDto : IValidatableObject
 {
-    [Required]
-    public DateTime From { get; set; }
-
-    [Required]
-    public DateTime To { get; set; }
+    [Required] public DateTime From { get; set; }
+    [Required] public DateTime To { get; set; }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext _)
     {
-        var (fromUtc, toUtc) = ToUtcRange();
-
-        if (toUtc <= fromUtc)
-            yield return new ValidationResult(
-                "Parameter 'to' must be greater than 'from'.",
-                new[] { nameof(To), nameof(From) });
+        if (To <= From) yield return new ValidationResult("'To' must be > 'From'.", new[] { nameof(To) });
     }
 
-    public (DateTime FromUtc, DateTime ToUtc) ToUtcRange()
-    {
-        var from = From.Kind == DateTimeKind.Unspecified
-            ? DateTime.SpecifyKind(From, DateTimeKind.Utc)
-            : From;
-
-        var to = To.Kind == DateTimeKind.Unspecified
-            ? DateTime.SpecifyKind(To, DateTimeKind.Utc)
-            : To;
-
-        return (from, to);
-    }
+    public (DateTime FromUtc, DateTime ToUtc) ToUtcRange() => DateHelpers.NormalizeRange(From, To);
 }
 
 public class VolumeQueryDto : IValidatableObject
 {
     [Required] public DateTime From { get; set; }
-
     [Required] public DateTime To { get; set; }
     
+    [RegularExpression("(?i)^(day|week|exercise)$", ErrorMessage = "GroupBy: 'day', 'week', 'exercise'.")]
     public string GroupBy { get; set; } = "day";
     
+    [StringLength(200)]
     public string? ExerciseName { get; set; }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext _)
     {
-        var (fromUtc, toUtc) = ToUtcRange();
-
-        if (toUtc <= fromUtc)
-            yield return new ValidationResult(
-                "Parameter 'to' must be greater than 'from'.",
-                new[] { nameof(To), nameof(From) });
-
-        var gb = GroupByNormalized;
-        if (gb is not ("day" or "week" or "exercise"))
-            yield return new ValidationResult(
-                "groupBy must be one of: 'day', 'week', 'exercise'.",
-                new[] { nameof(GroupBy) });
-
-        if (ExerciseName is { Length: > 200 })
-            yield return new ValidationResult(
-                "ExerciseName max length is 200 characters.",
-                new[] { nameof(ExerciseName) });
+        if (To <= From) yield return new ValidationResult("'To' must be > 'From'.", new[] { nameof(To) });
     }
 
-    public (DateTime FromUtc, DateTime ToUtc) ToUtcRange()
-    {
-        var from = From.Kind == DateTimeKind.Unspecified
-            ? DateTime.SpecifyKind(From, DateTimeKind.Utc)
-            : From;
-
-        var to = To.Kind == DateTimeKind.Unspecified
-            ? DateTime.SpecifyKind(To, DateTimeKind.Utc)
-            : To;
-
-        return (from, to);
-    }
-
-    public string GroupByNormalized =>
-        string.IsNullOrWhiteSpace(GroupBy)
-            ? "day"
-            : GroupBy.Trim().ToLowerInvariant();
+    public (DateTime FromUtc, DateTime ToUtc) ToUtcRange() => DateHelpers.NormalizeRange(From, To);
+    public string GroupByNormalized => GroupBy.Trim().ToLowerInvariant();
 }
 
 public class E1rmQueryDto : IValidatableObject
 {
     [Required] public DateTime From { get; set; }
-
     [Required] public DateTime To { get; set; }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext _)
     {
-        var (fromUtc, toUtc) = ToUtcRange();
-
-        if (toUtc <= fromUtc)
-            yield return new ValidationResult(
-                "Parameter 'to' must be greater than 'from'.",
-                new[] { nameof(To), nameof(From) });
+        if (To <= From) yield return new ValidationResult("'To' must be > 'From'.", new[] { nameof(To) });
     }
 
-    public (DateTime FromUtc, DateTime ToUtc) ToUtcRange()
-    {
-        var from = From.Kind == DateTimeKind.Unspecified
-            ? DateTime.SpecifyKind(From, DateTimeKind.Utc)
-            : From;
-
-        var to = To.Kind == DateTimeKind.Unspecified
-            ? DateTime.SpecifyKind(To, DateTimeKind.Utc)
-            : To;
-
-        return (from, to);
-    }
+    public (DateTime FromUtc, DateTime ToUtc) ToUtcRange() => DateHelpers.NormalizeRange(From, To);
 }
 
 public class AdherenceQueryDto : IValidatableObject
 {
     [Required] public DateOnly FromDate { get; set; }
-
     [Required] public DateOnly ToDate { get; set; }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext _)
     {
-        if (ToDate <= FromDate)
-            yield return new ValidationResult(
-                "Parameter 'toDate' must be greater than 'fromDate'.",
-                new[] { nameof(ToDate), nameof(FromDate) });
+        if (ToDate <= FromDate) yield return new ValidationResult("'To' must be > 'From'.", new[] { nameof(ToDate) });
     }
-
-    public (DateOnly From, DateOnly To) ToRange()
-    {
-        return (FromDate, ToDate);
-    }
+    
+    public (DateOnly From, DateOnly To) ToRange() => (FromDate, ToDate);
 }
 
-public class PlanVsActualQueryDto : IValidatableObject
+public class PlanVsActualQueryDto
 {
     [Required] public Guid SessionId { get; set; }
+}
 
-    public IEnumerable<ValidationResult> Validate(ValidationContext _)
+public static class DateHelpers 
+{
+    public static (DateTime From, DateTime To) NormalizeRange(DateTime from, DateTime to)
     {
-        if (SessionId == Guid.Empty)
-            yield return new ValidationResult(
-                "SessionId must be a non-empty GUID.",
-                new[] { nameof(SessionId) });
+        var f = from.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(from, DateTimeKind.Utc) : from.ToUniversalTime();
+        var t = to.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(to, DateTimeKind.Utc) : to.ToUniversalTime();
+        return (f, t);
     }
 }

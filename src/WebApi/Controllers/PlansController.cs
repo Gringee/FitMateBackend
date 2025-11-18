@@ -2,12 +2,18 @@
 using Application.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Net.Mime;
 
 namespace WebApi.Controllers;
 
+/// <summary>
+/// Zarządzanie planami treningowymi oraz ich udostępnianiem.
+/// </summary>
 [Authorize]
 [ApiController]
 [Route("api/plans")]
+[Consumes(MediaTypeNames.Application.Json)]
+[Produces(MediaTypeNames.Application.Json)]
 public class PlansController : ControllerBase
 {
     private readonly IPlanService _svc;
@@ -18,17 +24,43 @@ public class PlansController : ControllerBase
     }
 
     /// <summary>
-    /// Tworzy nowy plan treningowy dla zalogowanego użytkownika.
+    /// Tworzy nowy plan treningowy.
     /// </summary>
     /// <remarks>
-    /// Plan jest przypisywany do aktualnie zalogowanego użytkownika
-    /// (na podstawie <c>userId</c> z tokenu JWT).
+    /// Tworzy plan z listą ćwiczeń i serii, przypisując go do aktualnie zalogowanego użytkownika.
+    /// 
+    /// **Ograniczenia walidacji:**
+    /// * `PlanName`: 3-100 znaków.
+    /// * `Type`: 2-50 znaków (np. "Split", "FBW").
+    /// * `Exercises`: Max 100 ćwiczeń w planie.
+    /// * `Sets`: Max 50 serii na ćwiczenie.
+    /// 
+    /// **Przykładowe żądanie:**
+    /// 
+    ///     POST /api/plans
+    ///     {
+    ///       "planName": "Mój Plan Siłowy",
+    ///       "type": "Push Pull",
+    ///       "notes": "Trening 4x w tygodniu",
+    ///       "exercises": [
+    ///         {
+    ///           "name": "Wyciskanie sztangi",
+    ///           "rest": 120,
+    ///           "sets": [
+    ///             { "reps": 8, "weight": 80 },
+    ///             { "reps": 8, "weight": 80 }
+    ///           ]
+    ///         }
+    ///       ]
+    ///     }
     /// </remarks>
-    /// <param name="dto">Dane planu (nazwa, typ, ćwiczenia).</param>
-    /// <response code="200">Plan został utworzony.</response>
-    /// <response code="400">Niepoprawne dane wejściowe (walidacja DTO).</response>
+    /// <param name="dto">Kompletny obiekt planu wraz z ćwiczeniami.</param>
+    /// <param name="ct">Token anulowania operacji.</param>
+    /// <returns>Utworzony plan (wraz z nadanym ID).</returns>
+    /// <response code="200">Plan został pomyślnie utworzony.</response>
+    /// <response code="400">Błąd walidacji danych wejściowych (np. pusta nazwa, brak ćwiczeń).</response>
     [HttpPost]
-    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(PlanDto))]
+    [ProducesResponseType(typeof(PlanDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<PlanDto>> Create(
         [FromBody] CreatePlanDto dto,
@@ -39,28 +71,42 @@ public class PlansController : ControllerBase
     }
 
     /// <summary>
-    /// Pobiera wszystkie plany utworzone przez zalogowanego użytkownika.
+    /// Pobiera listę planów użytkownika.
     /// </summary>
-    /// <response code="200">Lista planów użytkownika.</response>
+    /// <remarks>
+    /// Zwraca plany stworzone przez zalogowanego użytkownika. Opcjonalnie może zwrócić również plany,
+    /// które inni użytkownicy udostępnili Tobie (i które zaakceptowałeś).
+    /// </remarks>
+    /// <param name="includeShared">
+    /// Jeśli <c>true</c>, lista zawiera również plany udostępnione (status <c>Accepted</c>). 
+    /// Domyślnie <c>false</c> (tylko własne).
+    /// </param>
+    /// <param name="ct">Token anulowania operacji.</param>
+    /// <returns>Lista planów.</returns>
+    /// <response code="200">Lista planów.</response>
     [HttpGet]
-    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<PlanDto>))]
-    public async Task<ActionResult<List<PlanDto>>> GetAll(CancellationToken ct)
+    [ProducesResponseType(typeof(List<PlanDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<PlanDto>>> GetAll(
+        [FromQuery] bool includeShared = false,
+        CancellationToken ct = default)
     {
-        var result = await _svc.GetAllAsync(ct);
+        var result = await _svc.GetAllAsync(includeShared, ct);
         return Ok(result);
     }
 
     /// <summary>
-    /// Pobiera pojedynczy plan po identyfikatorze.
+    /// Pobiera szczegóły konkretnego planu.
     /// </summary>
     /// <remarks>
-    /// Zwraca tylko plan, który należy do zalogowanego użytkownika.
+    /// Zwraca pełną strukturę planu (ćwiczenia, serie).
+    /// Dostępne tylko dla właściciela planu.
     /// </remarks>
-    /// <param name="id">Identyfikator planu.</param>
-    /// <response code="200">Znaleziony plan.</response>
-    /// <response code="404">Plan nie istnieje lub nie należy do użytkownika.</response>
+    /// <param name="id">Identyfikator planu (GUID).</param>
+    /// <param name="ct">Token anulowania operacji.</param>
+    /// <response code="200">Szczegóły planu.</response>
+    /// <response code="404">Plan nie istnieje lub nie masz do niego dostępu.</response>
     [HttpGet("{id:guid}")]
-    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(PlanDto))]
+    [ProducesResponseType(typeof(PlanDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
@@ -69,17 +115,21 @@ public class PlansController : ControllerBase
     }
 
     /// <summary>
-    /// Aktualizuje istniejący plan treningowy.
+    /// Aktualizuje istniejący plan.
     /// </summary>
     /// <remarks>
-    /// Możliwa jest edycja wyłącznie planów utworzonych przez zalogowanego użytkownika.
+    /// Nadpisuje dane planu (nazwę, notatki, typ) oraz **wymienia całą listę ćwiczeń** na nową.
+    /// Stare ćwiczenia i serie w tym planie są usuwane i zastępowane tymi z żądania.
     /// </remarks>
-    /// <param name="id">Identyfikator planu.</param>
-    /// <param name="dto">Nowe dane planu.</param>
-    /// <response code="200">Plan został zaktualizowany.</response>
-    /// <response code="404">Plan nie istnieje lub nie należy do użytkownika.</response>
+    /// <param name="id">Identyfikator edytowanego planu.</param>
+    /// <param name="dto">Nowa definicja planu.</param>
+    /// <param name="ct">Token anulowania operacji.</param>
+    /// <response code="200">Plan zaktualizowany pomyślnie.</response>
+    /// <response code="400">Błąd walidacji.</response>
+    /// <response code="404">Plan nie istnieje lub nie jest Twój.</response>
     [HttpPut("{id:guid}")]
-    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(PlanDto))]
+    [ProducesResponseType(typeof(PlanDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Update(Guid id, [FromBody] CreatePlanDto dto, CancellationToken ct)
     {
@@ -91,11 +141,12 @@ public class PlansController : ControllerBase
     /// Usuwa plan treningowy.
     /// </summary>
     /// <remarks>
-    /// Usunąć można tylko plan należący do zalogowanego użytkownika.
+    /// Trwale usuwa plan wraz ze wszystkimi ćwiczeniami i seriami.
     /// </remarks>
     /// <param name="id">Identyfikator planu.</param>
-    /// <response code="204">Plan został usunięty.</response>
-    /// <response code="404">Plan nie istnieje lub nie należy do użytkownika.</response>
+    /// <param name="ct">Token anulowania operacji.</param>
+    /// <response code="204">Plan usunięty.</response>
+    /// <response code="404">Plan nie istnieje lub nie jest Twój.</response>
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -106,16 +157,19 @@ public class PlansController : ControllerBase
     }
 
     /// <summary>
-    /// Duplikuje istniejący plan użytkownika.
+    /// Duplikuje (kopiuje) istniejący plan.
     /// </summary>
     /// <remarks>
-    /// Tworzy kopię planu z dopiskiem <c>(Copy)</c> w nazwie.
+    /// Tworzy głęboką kopię planu (wraz z ćwiczeniami i seriami), dodając do nazwy dopisek "(Copy)".
+    /// Nowy plan staje się własnością użytkownika wykonującego akcję.
     /// </remarks>
     /// <param name="id">Identyfikator planu źródłowego.</param>
-    /// <response code="200">Nowo utworzony, zduplikowany plan.</response>
-    /// <response code="404">Plan nie istnieje lub nie należy do użytkownika.</response>
+    /// <param name="ct">Token anulowania operacji.</param>
+    /// <returns>Nowy, skopiowany obiekt planu.</returns>
+    /// <response code="200">Kopia planu została utworzona.</response>
+    /// <response code="404">Plan źródłowy nie istnieje.</response>
     [HttpPost("{id:guid}/duplicate")]
-    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(PlanDto))]
+    [ProducesResponseType(typeof(PlanDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Duplicate(Guid id, CancellationToken ct)
     {
@@ -123,18 +177,25 @@ public class PlansController : ControllerBase
         return res is not null ? Ok(res) : NotFound();
     }
 
+    // --- SEKCJA SHARING (UDOSTĘPNIANIE) ---
+
     /// <summary>
     /// Udostępnia plan innemu użytkownikowi.
     /// </summary>
     /// <remarks>
-    /// Użytkownik docelowy wskazywany jest przez jego <c>userId</c>.
-    /// Udostępnić można tylko własne plany.
+    /// Wysyła zaproszenie do współdzielenia planu. Odbiorca zobaczy je w sekcji "Pending" i będzie mógł je zaakceptować.
+    /// 
+    /// **Ograniczenia:**
+    /// * Nie możesz udostępnić planu samemu sobie.
+    /// * Nie możesz udostępnić planu, który nie należy do Ciebie.
+    /// * Jeśli plan jest już udostępniony tej osobie (nawet w statusie Pending), operacja zwróci błąd.
     /// </remarks>
-    /// <param name="planId">Id planu do udostępnienia.</param>
-    /// <param name="targetUserId">Id użytkownika, któremu plan jest udostępniany.</param>
-    /// <response code="200">Plan został udostępniony.</response>
-    /// <response code="400">Plan już był udostępniony lub inne błędy biznesowe.</response>
-    /// <response code="404">Plan lub użytkownik docelowy nie istnieje.</response>
+    /// <param name="planId">Identyfikator Twojego planu.</param>
+    /// <param name="targetUserId">Identyfikator użytkownika (GUID), któremu chcesz pokazać plan.</param>
+    /// <param name="ct">Token anulowania operacji.</param>
+    /// <response code="200">Zaproszenie do udostępnienia zostało wysłane.</response>
+    /// <response code="400">Błąd biznesowy (np. już udostępniono, target == user).</response>
+    /// <response code="404">Nie znaleziono planu lub użytkownika docelowego.</response>
     [HttpPost("{planId:guid}/share-to/{targetUserId:guid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -146,11 +207,14 @@ public class PlansController : ControllerBase
     }
 
     /// <summary>
-    /// Zwraca listę planów, które zostały zaakceptowane i są dostępne dla zalogowanego użytkownika.
+    /// Pobiera listę planów udostępnionych MI przez innych (status Accepted).
     /// </summary>
-    /// <response code="200">Lista planów udostępnionych użytkownikowi.</response>
+    /// <remarks>
+    /// Są to "cudze" plany, do których użytkownik uzyskał dostęp i je zaakceptował.
+    /// </remarks>
+    /// <response code="200">Lista planów.</response>
     [HttpGet("shared-with-me")]
-    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<PlanDto>))]
+    [ProducesResponseType(typeof(List<PlanDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<PlanDto>>> GetSharedWithMe(CancellationToken ct)
     {
         var result = await _svc.GetSharedWithMeAsync(ct);
@@ -158,33 +222,52 @@ public class PlansController : ControllerBase
     }
 
     /// <summary>
-    /// Zwraca oczekujące zaproszenia do współdzielenia planów.
+    /// Pobiera otrzymane zaproszenia do planów (Oczekujące).
     /// </summary>
     /// <remarks>
-    /// Endpoint pokazuje plany, które zostały udostępnione zalogowanemu użytkownikowi
-    /// i czekają na akceptację lub odrzucenie.
+    /// Lista udostępnień skierowanych do Ciebie, które mają status <c>Pending</c> (czekają na decyzję).
     /// </remarks>
-    /// <response code="200">Lista oczekujących udostępnień.</response>
+    /// <response code="200">Lista oczekujących udostępnień (Przychodzące).</response>
     [HttpGet("shared/pending")]
-    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<SharedPlanDto>))]
+    [ProducesResponseType(typeof(List<SharedPlanDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<SharedPlanDto>>> GetPendingSharedPlans(CancellationToken ct)
     {
         var items = await _svc.GetPendingSharedPlansAsync(ct);
         return Ok(items);
     }
-
+    
     /// <summary>
-    /// Akceptuje lub odrzuca udostępniony plan.
+    /// Pobiera wysłane zaproszenia do planów (Oczekujące).
     /// </summary>
     /// <remarks>
-    /// Użytkownik, któremu plan został udostępniony, może zaakceptować lub odrzucić
-    /// zaproszenie, zmieniając jego status z <c>Pending</c> na <c>Accepted</c> lub <c>Rejected</c>.
+    /// Lista udostępnień, które Ty wysłałeś innym, ale oni jeszcze nie podjęli decyzji (status <c>Pending</c>).
     /// </remarks>
-    /// <param name="sharedPlanId">Identyfikator udostępnienia.</param>
-    /// <param name="body">Informacja, czy zaakceptować (<c>true</c>) czy odrzucić.</param>
-    /// <response code="200">Plan został zaakceptowany lub odrzucony.</response>
-    /// <response code="400">Zaproszenie już zostało rozpatrzone lub inne błędy biznesowe.</response>
-    /// <response code="404">Udostępnienie nie istnieje albo nie należy do użytkownika.</response>
+    /// <response code="200">Lista oczekujących udostępnień (Wychodzące).</response>
+    [HttpGet("shared/sent/pending")]
+    [ProducesResponseType(typeof(List<SharedPlanDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<SharedPlanDto>>> GetSentPendingSharedPlans(CancellationToken ct)
+    {
+        var items = await _svc.GetSentPendingSharedPlansAsync(ct);
+        return Ok(items);
+    }
+
+    /// <summary>
+    /// Decyzja o przyjęciu lub odrzuceniu udostępnionego planu.
+    /// </summary>
+    /// <remarks>
+    /// Pozwala zmienić status zaproszenia z <c>Pending</c> na <c>Accepted</c> lub <c>Rejected</c>.
+    /// 
+    /// **Przykład ciała żądania:**
+    /// 
+    ///     { "accept": true }
+    ///     
+    /// </remarks>
+    /// <param name="sharedPlanId">Identyfikator wpisu udostępnienia (SharedPlan ID).</param>
+    /// <param name="body">Obiekt decyzyjny.</param>
+    /// <param name="ct">Token anulowania operacji.</param>
+    /// <response code="200">Status zaktualizowany.</response>
+    /// <response code="400">Zaproszenie nie jest już w statusie Pending.</response>
+    /// <response code="404">Nie znaleziono zaproszenia.</response>
     [HttpPost("shared/{sharedPlanId:guid}/respond")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -199,46 +282,76 @@ public class PlansController : ControllerBase
     }
 
     /// <summary>
-    /// Zwraca historię zaakceptowanych i odrzuconych udostępnień planów.
-    /// </summary>
-    /// <response code="200">
-    /// Lista udostępnień ze statusem innym niż <c>Pending</c> (np. <c>Accepted</c>, <c>Rejected</c>).
-    /// </response>
-    [HttpGet("shared/history")]
-    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<SharedPlanDto>))]
-    public async Task<ActionResult<List<SharedPlanDto>>> GetSharedHistory(CancellationToken ct)
-    {
-        var items = await _svc.GetSharedHistoryAsync(ct);
-        return Ok(items);
-    }
-
-    /// <summary>
-    /// Cofnięcie udostępnienia planu przez autora.
+    /// Historia udostępnień (Zakończone).
     /// </summary>
     /// <remarks>
-    /// Usuwa wpis udostępnienia – użytkownik docelowy traci dostęp do planu.
-    /// Możliwe tylko dla właściciela udostępnienia.
+    /// Zwraca historię udostępnień, które zostały już rozpatrzone (status <c>Accepted</c> lub <c>Rejected</c>).
+    /// Plany w statusie <c>Pending</c> są pomijane (do tego służą osobne endpointy).
+    /// 
+    /// **Parametr scope:**
+    /// * `received` (domyślny) – Plany otrzymane od innych.
+    /// * `sent` – Plany wysłane przez Ciebie innym.
+    /// * `all` – Wszystkie powiązane z Tobą.
     /// </remarks>
-    /// <param name="sharedPlanId">Identyfikator udostępnienia.</param>
-    /// <response code="204">Udostępnienie zostało usunięte.</response>
-    /// <response code="404">Udostępnienie nie istnieje lub nie należy do użytkownika.</response>
+    /// <param name="scope">Zakres historii: <c>received</c>, <c>sent</c>, <c>all</c>.</param>
+    /// <param name="ct">Token anulowania operacji.</param>
+    /// <returns>Lista historycznych wpisów udostępnień.</returns>
+    [HttpGet("shared/history")]
+    [ProducesResponseType(typeof(List<SharedPlanDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<SharedPlanDto>>> GetSharedHistory(
+        [FromQuery] string? scope,
+        CancellationToken ct)
+    {
+        var items = await _svc.GetSharedHistoryAsync(scope, ct);
+        return Ok(items);
+    }
+    
+    /// <summary>
+    /// Usuwa lub anuluje udostępnienie planu.
+    /// </summary>
+    /// <remarks>
+    /// Pozwala wycofać udostępnienie (jeśli jesteś nadawcą) lub usunąć plan z listy "Udostępnione mi" (jeśli jesteś odbiorcą).
+    /// 
+    /// **Tryb onlyPending:**
+    /// * Jeśli <c>true</c>: Usuwa wpis TYLKO jeśli jest w statusie <c>Pending</c> (anulowanie zaproszenia).
+    /// * Jeśli <c>false</c> (domyślnie): Usuwa wpis bez względu na status (np. odebranie dostępu po czasie).
+    /// </remarks>
+    /// <param name="sharedPlanId">Identyfikator wpisu udostępnienia.</param>
+    /// <param name="onlyPending">Czy ograniczyć usuwanie tylko do oczekujących zaproszeń.</param>
+    /// <param name="ct">Token anulowania operacji.</param>
+    /// <response code="204">Udostępnienie usunięte.</response>
+    /// <response code="400">Błąd logiczny (np. wymuszono onlyPending, a status był Accepted).</response>
+    /// <response code="404">Nie znaleziono wpisu udostępnienia.</response>
     [HttpDelete("shared/{sharedPlanId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> Unshare(Guid sharedPlanId, CancellationToken ct)
+    public async Task<IActionResult> DeleteSharedPlan(Guid sharedPlanId, [FromQuery] bool onlyPending = false, CancellationToken ct = default)
     {
-        var ok = await _svc.UnshareAsync(sharedPlanId, ct);
-        return ok ? NoContent() : NotFound();
+        try
+        {
+            await _svc.DeleteSharedPlanAsync(sharedPlanId, onlyPending, ct);
+            return NoContent();
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Np. onlyPending=true, ale status już nie jest Pending
+            return BadRequest(new { message = ex.Message });
+        }
     }
 }
 
 /// <summary>
-/// Żądanie odpowiedzi na udostępniony plan.
+/// Model żądania odpowiedzi na udostępnienie planu.
 /// </summary>
 public sealed class RespondSharedPlanRequest
 {
     /// <summary>
-    /// Czy zaakceptować udostępniony plan.
+    /// Decyzja: true = Akceptuj, false = Odrzuć.
     /// </summary>
     public bool Accept { get; set; }
 }

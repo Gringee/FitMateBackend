@@ -3,7 +3,8 @@ namespace Domain.Entities;
 public class WorkoutSession
 {
     public Guid Id { get; set; }
-    public Guid ScheduledId { get; set; }        
+    public Guid ScheduledId { get; set; }       
+    public ScheduledWorkout Scheduled { get; set; } = null!;
     public DateTime StartedAtUtc { get; set; }
     public DateTime? CompletedAtUtc { get; set; }
     public int? DurationSec { get; set; }
@@ -25,6 +26,8 @@ public class SessionExercise
     public int RestSecPlanned { get; set; }
     public int? RestSecActual { get; set; }
     public ICollection<SessionSet> Sets { get; set; } = new List<SessionSet>();
+    public bool IsAdHoc { get; set; } = false; 
+    public Guid? ScheduledExerciseId { get; set; }
 }
 
 public class SessionSet

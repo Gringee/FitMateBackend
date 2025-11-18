@@ -2,19 +2,23 @@
 using Application.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Net.Mime;
 
 namespace WebApi.Controllers;
 
 /// <summary>
-/// Zarządzanie zaplanowanymi treningami (kalendarz).
+/// Zarządzanie zaplanowanymi treningami (Kalendarz).
 /// </summary>
 /// <remarks>
-/// Wszystkie operacje są wykonywane w kontekście zalogowanego użytkownika
-/// (na podstawie identyfikatora z tokenu JWT).
+/// Kontroler umożliwia planowanie treningów na konkretne dni, oznaczanie ich jako wykonane
+/// oraz zarządzanie historią aktywności.
+/// Wszystkie operacje są wykonywane w kontekście zalogowanego użytkownika.
 /// </remarks>
 [ApiController]
 [Route("api/scheduled")]
 [Authorize]
+[Consumes(MediaTypeNames.Application.Json)]
+[Produces(MediaTypeNames.Application.Json)]
 public class ScheduledController : ControllerBase
 {
     private readonly IScheduledService _svc;
@@ -25,38 +29,59 @@ public class ScheduledController : ControllerBase
     }
 
     /// <summary>
-    /// Tworzy nowe zaplanowane wydarzenie treningowe na wybrany dzień (i opcjonalnie godzinę).
+    /// Planuje nowy trening w kalendarzu.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// Jeśli w <see cref="CreateScheduledDto.Exercises"/> nie zostaną podane ćwiczenia,
-    /// zostaną skopiowane z przypisanego planu.
-    /// </para>
-    /// <para>
-    /// Format daty: <c>yyyy-MM-dd</c>, format czasu (opcjonalny): <c>HH:mm</c>.
-    /// </para>
+    /// Tworzy wpis w kalendarzu na podstawie istniejącego `PlanId`.
+    /// 
+    /// **Logika działania:**
+    /// * Jeśli lista `Exercises` jest pusta (lub null), system automatycznie skopiuje ćwiczenia z planu bazowego (`PlanId`).
+    /// * Jeśli przekażesz `Exercises`, nadpiszą one domyślny zestaw z planu (pozwala to modyfikować trening tylko na ten jeden dzień).
+    /// 
+    /// **Formatowanie:**
+    /// * `Date`: Wymagany format **yyyy-MM-dd** (np. "2023-11-15").
+    /// * `Time`: Opcjonalny format **HH:mm** (np. "18:30").
+    /// 
+    /// **Przykładowe żądanie:**
+    /// 
+    ///     POST /api/scheduled
+    ///     {
+    ///       "date": "2023-11-15",
+    ///       "time": "18:00",
+    ///       "planId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    ///       "status": "planned",
+    ///       "visibleToFriends": true
+    ///     }
     /// </remarks>
-    /// <param name="dto">Dane nowego zaplanowanego treningu.</param>
-    /// <response code="201">Utworzony rekord zaplanowanego treningu.</response>
-    /// <response code="400">Niepoprawne dane wejściowe (np. błędny format daty, brak wymaganych pól).</response>
+    /// <param name="dto">Obiekt tworzenia zaplanowanego treningu.</param>
+    /// <param name="ct">Token anulowania operacji.</param>
+    /// <returns>Utworzony obiekt zaplanowanego treningu.</returns>
+    /// <response code="201">Trening został pomyślnie zaplanowany.</response>
+    /// <response code="400">
+    /// Błąd walidacji danych (np. zły format daty) lub status inny niż 'planned'/'completed'.
+    /// </response>
+    /// <response code="404">Podany `PlanId` nie istnieje lub nie należy do użytkownika.</response>
     [HttpPost]
     [ProducesResponseType(typeof(ScheduledDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ScheduledDto>> Create(
         [FromBody] CreateScheduledDto dto,
         CancellationToken ct)
     {
+        // Service rzuca KeyNotFoundException jeśli PlanId nie istnieje -> Middleware 404
         var res = await _svc.CreateAsync(dto, ct);
         return CreatedAtRoute("GetScheduledById", new { id = res.Id }, res);
     }
 
     /// <summary>
-    /// Zwraca wszystkie zaplanowane treningi zalogowanego użytkownika.
+    /// Pobiera listę wszystkich zaplanowanych treningów użytkownika.
     /// </summary>
     /// <remarks>
-    /// Wyniki są sortowane rosnąco po dacie i godzinie.
+    /// Zwraca pełną listę treningów (historię oraz przyszłe plany), posortowaną chronologicznie (Data -> Czas).
     /// </remarks>
-    /// <response code="200">Lista zaplanowanych treningów.</response>
+    /// <param name="ct">Token anulowania operacji.</param>
+    /// <response code="200">Lista treningów.</response>
     [HttpGet]
     [ProducesResponseType(typeof(List<ScheduledDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<ScheduledDto>>> GetAll(CancellationToken ct)
@@ -66,11 +91,12 @@ public class ScheduledController : ControllerBase
     }
 
     /// <summary>
-    /// Zwraca pojedynczy zaplanowany trening po jego Id.
+    /// Pobiera szczegóły konkretnego treningu z kalendarza.
     /// </summary>
-    /// <param name="id">Identyfikator zaplanowanego treningu.</param>
-    /// <response code="200">Znaleziony trening.</response>
-    /// <response code="404">Nie znaleziono treningu o podanym Id (lub nie należy do użytkownika).</response>
+    /// <param name="id">Identyfikator zaplanowanego treningu (GUID).</param>
+    /// <param name="ct">Token anulowania operacji.</param>
+    /// <response code="200">Szczegóły treningu (wraz z ćwiczeniami i seriami).</response>
+    /// <response code="404">Trening nie istnieje lub nie należy do zalogowanego użytkownika.</response>
     [HttpGet("{id:guid}", Name = "GetScheduledById")]
     [ProducesResponseType(typeof(ScheduledDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -81,16 +107,21 @@ public class ScheduledController : ControllerBase
     }
 
     /// <summary>
-    /// Zwraca zaplanowane treningi dla konkretnej daty.
+    /// Pobiera treningi zaplanowane na konkretny dzień.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// Parametr <c>date</c> musi mieć format <c>yyyy-MM-dd</c>, np. <c>2025-11-15</c>.
-    /// </para>
+    /// Filtruje listę treningów po dacie.
+    /// 
+    /// **Przykładowe użycie:**
+    /// 
+    ///     GET /api/scheduled/by-date?date=2023-10-25
+    ///     
     /// </remarks>
-    /// <param name="date">Data dzienna w formacie <c>yyyy-MM-dd</c>.</param>
-    /// <response code="200">Lista treningów w danym dniu (może być pusta).</response>
-    /// <response code="400">Błędny format daty.</response>
+    /// <param name="date">Data w formacie **yyyy-MM-dd**.</param>
+    /// <param name="ct">Token anulowania operacji.</param>
+    /// <returns>Lista treningów w danym dniu.</returns>
+    /// <response code="200">Lista treningów (może być pusta).</response>
+    /// <response code="400">Podano datę w nieprawidłowym formacie.</response>
     [HttpGet("by-date")]
     [ProducesResponseType(typeof(List<ScheduledDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -98,24 +129,33 @@ public class ScheduledController : ControllerBase
         [FromQuery] string date,
         CancellationToken ct)
     {
-        var items = await _svc.GetByDateAsync(date, ct);
-        return Ok(items);
+        // DateOnly.ParseExact rzuci wyjątek formatu, jeśli string jest błędny.
+        // Wskazane jest, aby global exception handler obsłużył to jako 400.
+        try 
+        {
+            var items = await _svc.GetByDateAsync(date, ct);
+            return Ok(items);
+        }
+        catch (FormatException)
+        {
+            return BadRequest(new ProblemDetails { Title = "Invalid date format", Detail = "Use yyyy-MM-dd" });
+        }
     }
 
     /// <summary>
-    /// Aktualizuje istniejący zaplanowany trening.
+    /// Aktualizuje istniejący trening w kalendarzu.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// Podczas aktualizacji istniejące ćwiczenia i serie są usuwane i zastępowane
-    /// nowym zestawem z <see cref="CreateScheduledDto.Exercises"/>.
-    /// </para>
+    /// Pozwala zmienić datę, godzinę, notatki, status (np. na "completed") lub zmodyfikować listę ćwiczeń.
+    /// 
+    /// **Uwaga:** Przesłanie nowej listy `Exercises` całkowicie zastępuje starą listę ćwiczeń i serii dla tego wpisu.
     /// </remarks>
-    /// <param name="id">Identyfikator zaplanowanego treningu.</param>
-    /// <param name="dto">Nowe dane zaplanowanego treningu.</param>
+    /// <param name="id">Identyfikator edytowanego wpisu.</param>
+    /// <param name="dto">Nowe dane treningu.</param>
+    /// <param name="ct">Token anulowania operacji.</param>
     /// <response code="200">Zaktualizowany trening.</response>
-    /// <response code="404">Trening nie istnieje lub nie należy do użytkownika.</response>
-    /// <response code="400">Niepoprawne dane wejściowe.</response>
+    /// <response code="400">Błąd walidacji (np. format daty).</response>
+    /// <response code="404">Wpis nie istnieje lub plan bazowy (PlanId) został usunięty.</response>
     [HttpPut("{id:guid}")]
     [ProducesResponseType(typeof(ScheduledDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -130,11 +170,15 @@ public class ScheduledController : ControllerBase
     }
 
     /// <summary>
-    /// Usuwa zaplanowany trening.
+    /// Usuwa zaplanowany trening z kalendarza.
     /// </summary>
-    /// <param name="id">Identyfikator zaplanowanego treningu.</param>
-    /// <response code="204">Trening został usunięty.</response>
-    /// <response code="404">Trening nie istnieje lub nie należy do użytkownika.</response>
+    /// <remarks>
+    /// Operacja jest nieodwracalna. Usuwa wpis wraz z przypisanymi do niego seriami/ćwiczeniami (Cascade Delete).
+    /// </remarks>
+    /// <param name="id">Identyfikator wpisu do usunięcia.</param>
+    /// <param name="ct">Token anulowania operacji.</param>
+    /// <response code="204">Wpis został usunięty.</response>
+    /// <response code="404">Wpis nie istnieje lub nie należy do użytkownika.</response>
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -145,15 +189,17 @@ public class ScheduledController : ControllerBase
     }
 
     /// <summary>
-    /// Duplikuje istniejący zaplanowany trening.
+    /// Duplikuje istniejący wpis w kalendarzu.
     /// </summary>
     /// <remarks>
-    /// Tworzy nowy wpis z tym samym planem, ćwiczeniami, datą i godziną,
-    /// ale z nowym identyfikatorem.
+    /// Tworzy kopię zaplanowanego treningu (taka sama data, czas i ćwiczenia), ale z nowym ID.
+    /// Przydatne np. gdy użytkownik chce zrobić ten sam trening dwa razy dziennie lub szybko skopiować ustawienia.
     /// </remarks>
-    /// <param name="id">Id zaplanowanego treningu do zduplikowania.</param>
-    /// <response code="200">Nowy, zduplikowany trening.</response>
-    /// <response code="404">Oryginalny trening nie istnieje lub nie należy do użytkownika.</response>
+    /// <param name="id">Identyfikator wpisu źródłowego.</param>
+    /// <param name="ct">Token anulowania operacji.</param>
+    /// <returns>Nowo utworzony obiekt (kopia).</returns>
+    /// <response code="200">Kopia została utworzona pomyślnie.</response>
+    /// <response code="404">Wpis źródłowy nie istnieje.</response>
     [HttpPost("{id:guid}/duplicate")]
     [ProducesResponseType(typeof(ScheduledDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

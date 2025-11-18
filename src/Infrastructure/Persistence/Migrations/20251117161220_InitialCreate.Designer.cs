@@ -9,10 +9,10 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace Infrastructure.Migrations
+namespace Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20251115135133_InitialCreate")]
+    [Migration("20251117161220_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -260,6 +260,9 @@ namespace Infrastructure.Migrations
                     b.Property<DateOnly>("Date")
                         .HasColumnType("date");
 
+                    b.Property<bool>("IsVisibleToFriends")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Notes")
                         .HasColumnType("text");
 
@@ -295,6 +298,9 @@ namespace Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("IsAdHoc")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -309,13 +315,15 @@ namespace Infrastructure.Migrations
                     b.Property<int>("RestSecPlanned")
                         .HasColumnType("integer");
 
+                    b.Property<Guid?>("ScheduledExerciseId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid>("WorkoutSessionId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("WorkoutSessionId", "Order")
-                        .IsUnique();
+                    b.HasIndex("WorkoutSessionId", "Order");
 
                     b.ToTable("session_exercises", (string)null);
                 });
@@ -528,7 +536,7 @@ namespace Infrastructure.Migrations
                     b.HasOne("Domain.Entities.User", "CreatedByUser")
                         .WithMany()
                         .HasForeignKey("CreatedByUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("CreatedByUser");
@@ -674,11 +682,19 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.WorkoutSession", b =>
                 {
+                    b.HasOne("Domain.Entities.ScheduledWorkout", "Scheduled")
+                        .WithMany()
+                        .HasForeignKey("ScheduledId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("Domain.Entities.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Scheduled");
 
                     b.Navigation("User");
                 });

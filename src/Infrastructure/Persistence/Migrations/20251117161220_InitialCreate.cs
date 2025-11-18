@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace Infrastructure.Migrations
+namespace Infrastructure.Persistence.Migrations
 {
     /// <inheritdoc />
     public partial class InitialCreate : Migration
@@ -96,7 +96,7 @@ namespace Infrastructure.Migrations
                         column: x => x.CreatedByUserId,
                         principalTable: "users",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -146,30 +146,6 @@ namespace Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "workout_sessions",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    ScheduledId = table.Column<Guid>(type: "uuid", nullable: false),
-                    StartedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    CompletedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    DurationSec = table.Column<int>(type: "integer", nullable: true),
-                    Status = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
-                    SessionNotes = table.Column<string>(type: "text", nullable: true),
-                    UserId = table.Column<Guid>(type: "uuid", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_workout_sessions", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_workout_sessions_users_UserId",
-                        column: x => x.UserId,
-                        principalTable: "users",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "plan_exercises",
                 columns: table => new
                 {
@@ -200,7 +176,8 @@ namespace Infrastructure.Migrations
                     PlanName = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
                     Notes = table.Column<string>(type: "text", nullable: true),
                     Status = table.Column<int>(type: "integer", nullable: false),
-                    UserId = table.Column<Guid>(type: "uuid", nullable: false)
+                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    IsVisibleToFriends = table.Column<bool>(type: "boolean", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -255,28 +232,6 @@ namespace Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "session_exercises",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    WorkoutSessionId = table.Column<Guid>(type: "uuid", nullable: false),
-                    Order = table.Column<int>(type: "integer", nullable: false),
-                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
-                    RestSecPlanned = table.Column<int>(type: "integer", nullable: false),
-                    RestSecActual = table.Column<int>(type: "integer", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_session_exercises", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_session_exercises_workout_sessions_WorkoutSessionId",
-                        column: x => x.WorkoutSessionId,
-                        principalTable: "workout_sessions",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "plan_sets",
                 columns: table => new
                 {
@@ -318,26 +273,31 @@ namespace Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "session_sets",
+                name: "workout_sessions",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    SessionExerciseId = table.Column<Guid>(type: "uuid", nullable: false),
-                    SetNumber = table.Column<int>(type: "integer", nullable: false),
-                    RepsPlanned = table.Column<int>(type: "integer", nullable: false),
-                    WeightPlanned = table.Column<decimal>(type: "numeric(10,2)", nullable: false),
-                    RepsDone = table.Column<int>(type: "integer", nullable: true),
-                    WeightDone = table.Column<decimal>(type: "numeric(10,2)", nullable: true),
-                    Rpe = table.Column<decimal>(type: "numeric", nullable: true),
-                    IsFailure = table.Column<bool>(type: "boolean", nullable: true)
+                    ScheduledId = table.Column<Guid>(type: "uuid", nullable: false),
+                    StartedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    CompletedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    DurationSec = table.Column<int>(type: "integer", nullable: true),
+                    Status = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
+                    SessionNotes = table.Column<string>(type: "text", nullable: true),
+                    UserId = table.Column<Guid>(type: "uuid", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_session_sets", x => x.Id);
+                    table.PrimaryKey("PK_workout_sessions", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_session_sets_session_exercises_SessionExerciseId",
-                        column: x => x.SessionExerciseId,
-                        principalTable: "session_exercises",
+                        name: "FK_workout_sessions_scheduled_workouts_ScheduledId",
+                        column: x => x.ScheduledId,
+                        principalTable: "scheduled_workouts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_workout_sessions_users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "users",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -359,6 +319,55 @@ namespace Infrastructure.Migrations
                         name: "FK_scheduled_sets_scheduled_exercises_ScheduledExerciseId",
                         column: x => x.ScheduledExerciseId,
                         principalTable: "scheduled_exercises",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "session_exercises",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    WorkoutSessionId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Order = table.Column<int>(type: "integer", nullable: false),
+                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    RestSecPlanned = table.Column<int>(type: "integer", nullable: false),
+                    RestSecActual = table.Column<int>(type: "integer", nullable: true),
+                    IsAdHoc = table.Column<bool>(type: "boolean", nullable: false),
+                    ScheduledExerciseId = table.Column<Guid>(type: "uuid", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_session_exercises", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_session_exercises_workout_sessions_WorkoutSessionId",
+                        column: x => x.WorkoutSessionId,
+                        principalTable: "workout_sessions",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "session_sets",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    SessionExerciseId = table.Column<Guid>(type: "uuid", nullable: false),
+                    SetNumber = table.Column<int>(type: "integer", nullable: false),
+                    RepsPlanned = table.Column<int>(type: "integer", nullable: false),
+                    WeightPlanned = table.Column<decimal>(type: "numeric(10,2)", nullable: false),
+                    RepsDone = table.Column<int>(type: "integer", nullable: true),
+                    WeightDone = table.Column<decimal>(type: "numeric(10,2)", nullable: true),
+                    Rpe = table.Column<decimal>(type: "numeric", nullable: true),
+                    IsFailure = table.Column<bool>(type: "boolean", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_session_sets", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_session_sets_session_exercises_SessionExerciseId",
+                        column: x => x.SessionExerciseId,
+                        principalTable: "session_exercises",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -436,8 +445,7 @@ namespace Infrastructure.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_session_exercises_WorkoutSessionId_Order",
                 table: "session_exercises",
-                columns: new[] { "WorkoutSessionId", "Order" },
-                unique: true);
+                columns: new[] { "WorkoutSessionId", "Order" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_session_sets_SessionExerciseId_SetNumber",
@@ -531,10 +539,10 @@ namespace Infrastructure.Migrations
                 name: "roles");
 
             migrationBuilder.DropTable(
-                name: "scheduled_workouts");
+                name: "workout_sessions");
 
             migrationBuilder.DropTable(
-                name: "workout_sessions");
+                name: "scheduled_workouts");
 
             migrationBuilder.DropTable(
                 name: "plans");

@@ -12,6 +12,7 @@ using WebApi.Middleware;
 using Microsoft.AspNetCore.Mvc;
 using System.Reflection;
 using WebApi.Swagger;
+using WebApi.Converters;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -37,12 +38,19 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IFriendshipService, FriendshipService>();
 builder.Services.AddScoped<IUserAdminService, UserAdminService>();
+builder.Services.AddScoped<IFriendWorkoutService, FriendWorkoutService>();
+builder.Services.AddScoped<IUserProfileService, UserProfileService>();
 builder.Services.AddHttpContextAccessor();
 
 // ---------------- Controllers (bez globalnego [Authorize]) ----------------
 builder.Services.AddControllers();
 
-//Globalne tłumaczenie ModelState na te same ProblemDetails,
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new TimeOnlyJsonConverter());
+        options.JsonSerializerOptions.Converters.Add(new DateOnlyJsonConverter());
+    });
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     options.InvalidModelStateResponseFactory = context =>
@@ -63,6 +71,9 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new() { Title = "FitMate API", Version = "v1" });
+    
+    c.MapType<DateOnly>(() => new OpenApiSchema { Type = "string", Format = "date" });
+    c.MapType<TimeOnly>(() => new OpenApiSchema { Type = "string", Format = "time", Example = new Microsoft.OpenApi.Any.OpenApiString("18:30") });
     
     c.AddServer(new OpenApiServer
     {

@@ -2,16 +2,22 @@ using Application.Abstractions;
 using Application.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Net.Mime;
 
 namespace WebApi.Controllers;
 
 /// <summary>
-/// Zarządzanie zaproszeniami do znajomych oraz listą znajomych zalogowanego użytkownika.
+/// Zarządzanie relacjami znajomości (Friendships).
 /// </summary>
+/// <remarks>
+/// Kontroler obsługuje pełny cykl życia znajomości:
+/// wysyłanie zaproszeń, akceptowanie/odrzucanie, listowanie znajomych oraz ich usuwanie.
+/// </remarks>
 [Authorize]
 [ApiController]
 [Route("api/friends")]
-[Produces("application/json")]
+[Consumes(MediaTypeNames.Application.Json)]
+[Produces(MediaTypeNames.Application.Json)]
 public class FriendsController : ControllerBase
 {
     private readonly IFriendshipService _svc;
@@ -20,49 +26,74 @@ public class FriendsController : ControllerBase
         => _svc = svc;
 
     /// <summary>
-    /// Wysyła zaproszenie do znajomych na podstawie nazwy użytkownika (UserName).
+    /// Wysyła zaproszenie do znajomych (po nazwie użytkownika).
     /// </summary>
     /// <remarks>
-    /// Jeśli zaproszenie już istnieje w statusie <c>Pending</c> i zostało wysłane w drugą stronę,
-    /// serwis może automatycznie je zaakceptować.<br/>
-    /// Rzucane wyjątki (np. gdy użytkownik nie istnieje, próba dodania siebie, itp.) są mapowane
-    /// przez globalny middleware na odpowiednie kody HTTP.
+    /// **Logika biznesowa:**
+    /// * Nie można wysłać zaproszenia do samego siebie.
+    /// * Jeśli użytkownicy są już znajomymi, zwrócony zostanie błąd.
+    /// * **Auto-akceptacja:** Jeśli użytkownik, do którego wysyłasz zaproszenie, wcześniej wysłał zaproszenie do Ciebie (status Pending),
+    /// system wykryje to i automatycznie nawiąże relację (status Accepted).
+    /// 
+    /// **Przykładowe żądanie:**
+    /// 
+    ///     POST /api/friends/jankowalski
+    ///     
     /// </remarks>
-    /// <param name="username">Nazwa użytkownika (UserName), do którego wysyłamy zaproszenie.</param>
-    /// <response code="200">Zaproszenie zostało wysłane lub automatycznie zaakceptowane.</response>
-    /// <response code="400">Błąd biznesowy (np. zaproszenie już istnieje, próba dodania siebie).</response>
-    /// <response code="401">Brak autoryzacji.</response>
-    /// <response code="404">Użytkownik o podanym username nie istnieje.</response>
+    /// <param name="username">Unikalna nazwa użytkownika (UserName) adresata.</param>
+    /// <param name="ct">Token anulowania operacji.</param>
+    /// <response code="200">
+    /// Zaproszenie wysłane pomyślnie LUB relacja została automatycznie zaakceptowana (gdy istniało zaproszenie zwrotne).
+    /// </response>
+    /// <response code="400">
+    /// Błąd walidacji logicznej. Przykładowe komunikaty błędów:
+    /// * "You cannot add yourself."
+    /// * "You are already friends."
+    /// * "A friend request is already in progress." (gdy już wysłałeś wcześniej zaproszenie).
+    /// </response>
+    /// <response code="404">Nie znaleziono użytkownika o podanej nazwie.</response>
     [HttpPost("{username}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> SendRequest(
         string username,
         CancellationToken ct)
     {
+        // Wyjątki (KeyNotFound, InvalidOperation) są łapane przez Middleware -> 404 / 400
         await _svc.SendRequestByUserNameAsync(username, ct);
         return Ok(new { message = "Friend request sent." });
     }
 
     /// <summary>
-    /// Akceptuje lub odrzuca zaproszenie do znajomych.
+    /// Odpowiada na otrzymane zaproszenie (Akceptacja / Odrzucenie).
     /// </summary>
     /// <remarks>
-    /// Użytkownik może odpowiadać tylko na zaproszenia, których jest adresatem (nie nadawcą).
+    /// Pozwala zaakceptować lub odrzucić oczekujące zaproszenie.
+    /// Można odpowiadać tylko na zaproszenia, w których jest się adresatem (`ToUserId`).
+    /// 
+    /// **Przykładowe żądanie (Akceptacja):**
+    /// 
+    ///     POST /api/friends/requests/3fa85f64-5717-4562-b3fc-2c963f66afa6/respond
+    ///     {
+    ///        "accept": true
+    ///     }
+    ///     
     /// </remarks>
-    /// <param name="requestId">Identyfikator zaproszenia.</param>
-    /// <param name="body">Informacja, czy zaakceptować (<c>true</c>) czy odrzucić (<c>false</c>).</param>
-    /// <response code="200">Zaproszenie zaakceptowane lub odrzucone.</response>
-    /// <response code="400">Zaproszenie zostało już wcześniej rozpatrzone lub inne naruszenie reguł.</response>
-    /// <response code="401">Brak autoryzacji.</response>
-    /// <response code="404">Zaproszenie nie istnieje lub nie dotyczy zalogowanego użytkownika.</response>
+    /// <param name="requestId">Identyfikator zaproszenia (GUID).</param>
+    /// <param name="body">Obiekt decyzyjny (Accept = true/false).</param>
+    /// <param name="ct">Token anulowania operacji.</param>
+    /// <response code="200">Decyzja została zapisana (znajomość nawiązana lub zaproszenie odrzucone).</response>
+    /// <response code="400">
+    /// Zaproszenie nie jest w stanie "Pending" lub próbujesz odpowiedzieć na własne zaproszenie.
+    /// </response>
+    /// <response code="404">Zaproszenie nie istnieje.</response>
+    /// <response code="401">Próba odpowiedzi na zaproszenie, które nie jest skierowane do Ciebie.</response>
     [HttpPost("requests/{requestId:guid}/respond")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Respond(
         Guid requestId,
         [FromBody] RespondFriendRequest body,
@@ -73,13 +104,16 @@ public class FriendsController : ControllerBase
     }
 
     /// <summary>
-    /// Zwraca listę zaakceptowanych znajomych zalogowanego użytkownika.
+    /// Pobiera listę aktualnych znajomych.
     /// </summary>
+    /// <remarks>
+    /// Zwraca listę użytkowników, z którymi relacja ma status <c>Accepted</c>.
+    /// </remarks>
+    /// <param name="ct">Token anulowania operacji.</param>
+    /// <returns>Lista obiektów zawierających ID i nazwę użytkownika znajomych.</returns>
     /// <response code="200">Lista znajomych.</response>
-    /// <response code="401">Brak autoryzacji.</response>
     [HttpGet]
     [ProducesResponseType(typeof(IReadOnlyList<FriendDto>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<IReadOnlyList<FriendDto>>> GetFriends(
         CancellationToken ct)
     {
@@ -88,13 +122,14 @@ public class FriendsController : ControllerBase
     }
 
     /// <summary>
-    /// Zwraca listę przychodzących (otrzymanych) zaproszeń do znajomych.
+    /// Pobiera listę oczekujących zaproszeń przychodzących.
     /// </summary>
-    /// <response code="200">Lista oczekujących zaproszeń przychodzących.</response>
-    /// <response code="401">Brak autoryzacji.</response>
+    /// <remarks>
+    /// Są to zaproszenia wysłane przez inne osoby do aktualnie zalogowanego użytkownika.
+    /// </remarks>
+    /// <response code="200">Lista zaproszeń do rozpatrzenia.</response>
     [HttpGet("requests/incoming")]
     [ProducesResponseType(typeof(IReadOnlyList<FriendRequestDto>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<IReadOnlyList<FriendRequestDto>>> Incoming(
         CancellationToken ct)
     {
@@ -103,13 +138,14 @@ public class FriendsController : ControllerBase
     }
 
     /// <summary>
-    /// Zwraca listę wychodzących (wysłanych) zaproszeń do znajomych.
+    /// Pobiera listę wysłanych zaproszeń (wychodzących).
     /// </summary>
-    /// <response code="200">Lista oczekujących zaproszeń wysłanych.</response>
-    /// <response code="401">Brak autoryzacji.</response>
+    /// <remarks>
+    /// Są to zaproszenia wysłane przez Ciebie, które wciąż oczekują na decyzję drugiej strony (status <c>Pending</c>).
+    /// </remarks>
+    /// <response code="200">Lista wysłanych, oczekujących zaproszeń.</response>
     [HttpGet("requests/outgoing")]
     [ProducesResponseType(typeof(IReadOnlyList<FriendRequestDto>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<IReadOnlyList<FriendRequestDto>>> Outgoing(
         CancellationToken ct)
     {
@@ -118,19 +154,18 @@ public class FriendsController : ControllerBase
     }
 
     /// <summary>
-    /// Usuwa istniejącego znajomego (kończy relację znajomości).
+    /// Usuwa użytkownika z listy znajomych.
     /// </summary>
     /// <remarks>
-    /// Usuwa tylko relację, w której zalogowany użytkownik jest jedną ze stron.
+    /// Trwale usuwa relację znajomości (status <c>Accepted</c>). Operacja jest dwustronna – użytkownik znika również z listy znajomych drugiej osoby.
     /// </remarks>
-    /// <param name="friendUserId">Id użytkownika, którego chcemy usunąć z listy znajomych.</param>
-    /// <response code="204">Znajomy został usunięty.</response>
-    /// <response code="404">Relacja znajomości nie istnieje.</response>
-    /// <response code="401">Brak autoryzacji.</response>
+    /// <param name="friendUserId">Identyfikator użytkownika (GUID), którego chcemy usunąć.</param>
+    /// <param name="ct">Token anulowania operacji.</param>
+    /// <response code="204">Znajomy został usunięty pomyślnie.</response>
+    /// <response code="404">Taka relacja nie istnieje (nie jesteście znajomymi).</response>
     [HttpDelete("{friendUserId:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Remove(
         Guid friendUserId,
         CancellationToken ct)

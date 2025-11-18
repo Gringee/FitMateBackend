@@ -31,8 +31,12 @@ public class SessionExerciseConfiguration : IEntityTypeConfiguration<SessionExer
         builder.ToTable("session_exercises");
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Name).HasMaxLength(200).IsRequired();
+        
+        builder.Property(x => x.ScheduledExerciseId).IsRequired(false);
+
         builder.HasMany(x => x.Sets).WithOne().HasForeignKey(s => s.SessionExerciseId).OnDelete(DeleteBehavior.Cascade);
-        builder.HasIndex(x => new { x.WorkoutSessionId, x.Order }).IsUnique();
+        
+        builder.HasIndex(x => new { x.WorkoutSessionId, x.Order }); 
     }
 }
 

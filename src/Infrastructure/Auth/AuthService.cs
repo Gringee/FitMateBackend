@@ -22,13 +22,11 @@ public class AuthService : IAuthService
     {
         var email = request.Email.Trim().ToLowerInvariant();
         var uname = request.UserName.Trim().ToLowerInvariant();
-
-        var existsMail  = await _db.Users
-            .AnyAsync(u => u.Email == email, ct); 
+        
+        var existsMail  = await _db.Users.AnyAsync(u => u.Email == email, ct); 
         if (existsMail) throw new InvalidOperationException("Email already registered.");
         
-        var existsUserName = await _db.Users
-            .AnyAsync(u => u.UserName == uname, ct);
+        var existsUserName = await _db.Users.AnyAsync(u => u.UserName == uname, ct);
         if (existsUserName) throw new InvalidOperationException("Username already registered.");
 
         var user = new User
@@ -50,13 +48,24 @@ public class AuthService : IAuthService
 
         _db.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = role.Id });
 
-        // access
-        await _db.SaveChangesAsync(ct);
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException)
+        {
+            if (await _db.Users.AnyAsync(u => u.Email == email, ct))
+                throw new InvalidOperationException("Email already registered.");
+            
+            if (await _db.Users.AnyAsync(u => u.UserName == uname, ct))
+                throw new InvalidOperationException("Username already registered.");
+            
+            throw;
+        }
         var roles = new[] { "User" };
         var (access, exp) = _tokens.CreateAccessToken(user, roles);
-
-        // refresh 
         var (rt, rtExp) = _tokens.CreateRefreshToken();
+
         _db.RefreshTokens.Add(new RefreshToken
         {
             Id = Guid.NewGuid(),
@@ -64,6 +73,7 @@ public class AuthService : IAuthService
             Token = rt,
             ExpiresAtUtc = rtExp
         });
+        
         await _db.SaveChangesAsync(ct);
 
         return new AuthResponse { AccessToken = access, ExpiresAtUtc = exp, RefreshToken = rt };
@@ -84,7 +94,14 @@ public class AuthService : IAuthService
         var (access, exp) = _tokens.CreateAccessToken(user, roles);
         var (rt, rtExp) = _tokens.CreateRefreshToken();
 
-        _db.RefreshTokens.Add(new RefreshToken { Id = Guid.NewGuid(), UserId = user.Id, Token = rt, ExpiresAtUtc = rtExp });
+        _db.RefreshTokens.Add(new RefreshToken 
+        { 
+            Id = Guid.NewGuid(), 
+            UserId = user.Id, 
+            Token = rt, 
+            ExpiresAtUtc = rtExp 
+        });
+        
         await _db.SaveChangesAsync(ct);
 
         return new AuthResponse { AccessToken = access, ExpiresAtUtc = exp, RefreshToken = rt };
@@ -94,24 +111,35 @@ public class AuthService : IAuthService
     {
         var now = DateTime.UtcNow;
 
-        var rt = await _db.RefreshTokens
+        var existingRt = await _db.RefreshTokens
             .Include(x => x.User).ThenInclude(u => u.UserRoles).ThenInclude(ur => ur.Role)
-            .FirstOrDefaultAsync(x =>
-                    x.Token == refreshToken &&
-                    x.ExpiresAtUtc > now, 
-                ct);
+            .FirstOrDefaultAsync(x => x.Token == refreshToken, ct);
 
-        if (rt == null)
-            throw new InvalidOperationException("Invalid refresh token.");
+        if (existingRt == null || existingRt.ExpiresAtUtc <= now)
+        {
+            throw new InvalidOperationException("Invalid or expired refresh token.");
+        }
+        _db.RefreshTokens.Remove(existingRt);
 
-        var roles = rt.User.UserRoles.Select(r => r.Role.Name);
-        var (access, exp) = _tokens.CreateAccessToken(rt.User, roles);
+        var roles = existingRt.User.UserRoles.Select(r => r.Role.Name);
+        var (newAccess, newAccessExp) = _tokens.CreateAccessToken(existingRt.User, roles);
+        var (newRt, newRtExp) = _tokens.CreateRefreshToken();
+
+        _db.RefreshTokens.Add(new RefreshToken
+        {
+            Id = Guid.NewGuid(),
+            UserId = existingRt.UserId,
+            Token = newRt,
+            ExpiresAtUtc = newRtExp
+        });
+
+        await _db.SaveChangesAsync(ct);
         
         return new AuthResponse
         {
-            AccessToken = access,
-            ExpiresAtUtc = exp,
-            RefreshToken = rt.Token 
+            AccessToken = newAccess,
+            ExpiresAtUtc = newAccessExp,
+            RefreshToken = newRt
         };
     }
     
@@ -119,16 +147,13 @@ public class AuthService : IAuthService
     {
         if (string.IsNullOrWhiteSpace(request.RefreshToken))
             return; 
+            
         var rt = await _db.RefreshTokens
             .FirstOrDefaultAsync(t => t.Token == request.RefreshToken, ct);
 
-        if (rt is null)
-        {
-            return;
-        }
+        if (rt is null) return;
 
         _db.RefreshTokens.Remove(rt);
-
         await _db.SaveChangesAsync(ct);
     }
 }

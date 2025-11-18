@@ -6,8 +6,7 @@ public class SetDto
 {
     [Range(1, 1000, ErrorMessage = "Reps must be between 1 and 1000.")]
     public int Reps { get; set; }
-
-    // 0 = bodyweight / no-load set is allowed
+    
     [Range(0, 1000, ErrorMessage = "Weight must be between 0 and 1000.")]
     public decimal Weight { get; set; }
 }
@@ -16,11 +15,9 @@ public class ExerciseDto : IValidatableObject
 {
     [Required, StringLength(100, MinimumLength = 1, ErrorMessage = "Exercise name is required (1-100 chars).")]
     public string Name { get; set; } = null!;
-
-    // Rest in seconds
+    
     [Range(0, 3600, ErrorMessage = "Rest must be between 0 and 3600 seconds.")]
     public int Rest { get; set; } = 90;
-    
     public List<SetDto> Sets { get; set; } = new();
 
     public IEnumerable<ValidationResult> Validate(ValidationContext _)
@@ -80,6 +77,7 @@ public class SharedPlanDto
     public Guid PlanId { get; set; }
     public string PlanName { get; set; } = string.Empty;
     public string SharedByName { get; set; } = string.Empty;
+    public string SharedWithName { get; set; } = string.Empty;
     public DateTime SharedAtUtc { get; set; }
     public string Status { get; set; } = "Pending";
     public DateTime? RespondedAtUtc { get; set; }

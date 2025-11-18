@@ -2,11 +2,14 @@ using Application.Abstractions;
 using Application.DTOs.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Net.Mime;
 
 namespace WebApi.Controllers;
 
 [ApiController]
 [Route("api/auth")]
+[Consumes(MediaTypeNames.Application.Json)]
+[Produces(MediaTypeNames.Application.Json)]
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _auth;
@@ -17,46 +20,74 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Rejestruje nowego użytkownika.
+    /// Rejestracja nowego konta użytkownika.
     /// </summary>
     /// <remarks>
-    /// Tworzy użytkownika, przypisuje mu rolę <c>User</c> i od razu zwraca parę
-    /// <c>accessToken</c> + <c>refreshToken</c>.
+    /// Tworzy nowego użytkownika w systemie, przypisuje mu domyślną rolę i automatycznie loguje, zwracając tokeny.
+    /// 
+    /// **Przykładowe żądanie:**
+    /// 
+    ///     POST /api/auth/register
+    ///     {
+    ///        "email": "jan.kowalski@example.com",
+    ///        "username": "jankowal",
+    ///        "password": "TrudneHaslo123!",
+    ///        "fullName": "Jan Kowalski"
+    ///     }
+    /// 
+    /// **Logika biznesowa:**
+    /// * Email i UserName muszą być unikalne.
+    /// * Hasło jest hashowane przed zapisem (BCrypt).
     /// </remarks>
-    /// <param name="req">Dane rejestracyjne (email, hasło, pełne imię, nazwa użytkownika).</param>
-    /// <response code="200">Pomyślna rejestracja – zwrócone tokeny.</response>
+    /// <param name="req">Obiekt DTO zawierający wymagane dane rejestracyjne.</param>
+    /// <param name="ct">Token anulowania operacji.</param>
+    /// <returns>Zwraca parę tokenów (Access + Refresh).</returns>
+    /// <response code="200">Rejestracja przebiegła pomyślnie, zwrócono tokeny.</response>
     /// <response code="400">
-    /// Niepoprawne dane (np. zła walidacja pola albo email/username już zajęty).
+    /// Błąd walidacji lub danych biznesowych.
+    /// Możliwe przyczyny (zwracane w polu `detail` struktury ProblemDetails):
+    /// * "Email already registered."
+    /// * "Username already registered."
     /// </response>
     [HttpPost("register")]
     [AllowAnonymous]
-    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(AuthResponse))]
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<AuthResponse>> Register(
         [FromBody] RegisterRequest req,
         CancellationToken ct)
     {
-        // Błędy ModelState → globalny InvalidModelStateResponseFactory (ProblemDetails 400)
         var result = await _auth.RegisterAsync(req, ct);
         return Ok(result);
     }
 
     /// <summary>
-    /// Loguje użytkownika i zwraca tokeny.
+    /// Logowanie użytkownika.
     /// </summary>
     /// <remarks>
-    /// Pole <c>UserNameOrEmail</c> może zawierać zarówno nazwę użytkownika, jak i adres e-mail.
-    /// Zwracany jest nowy <c>accessToken</c> oraz <c>refreshToken</c>.
+    /// Weryfikuje poświadczenia i generuje nowe tokeny dostępowe.
+    /// 
+    /// **Przykładowe żądanie:**
+    /// 
+    ///     POST /api/auth/login
+    ///     {
+    ///        "userNameOrEmail": "jankowal", 
+    ///        "password": "TrudneHaslo123!"
+    ///     }
+    /// 
+    /// Uwaga: Pole `userNameOrEmail` akceptuje zarówno login jak i adres e-mail.
     /// </remarks>
-    /// <param name="req">Login (UserName lub Email) oraz hasło.</param>
-    /// <response code="200">Logowanie udane – zwrócone tokeny.</response>
+    /// <param name="req">Dane logowania (Login/Email + Hasło).</param>
+    /// <param name="ct">Token anulowania operacji.</param>
+    /// <returns>Zwraca parę tokenów (Access + Refresh).</returns>
+    /// <response code="200">Logowanie poprawne.</response>
     /// <response code="400">
-    /// Niepoprawne dane wejściowe lub błędne dane logowania
-    /// (mapowane z wyjątków w <c>AuthService</c> przez globalny middleware).
+    /// Błędne dane logowania.
+    /// Zwracany komunikat: "Invalid credentials."
     /// </response>
     [HttpPost("login")]
     [AllowAnonymous]
-    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(AuthResponse))]
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<AuthResponse>> Login(
         [FromBody] LoginRequest req,
@@ -67,21 +98,30 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Odświeża access token na podstawie refresh tokenu.
+    /// Odświeżanie tokena dostępowego (Refresh Token Flow).
     /// </summary>
     /// <remarks>
-    /// Przyjmuje ważny <c>refreshToken</c> i zwraca nowy <c>accessToken</c>.
-    /// Aktualnie backend zwraca ten sam refresh token (można to później rozszerzyć
-    /// o rotację refresh tokenów).
+    /// Pozwala uzyskać nowy `accessToken` bez konieczności ponownego logowania, używając ważnego `refreshToken`.
+    /// 
+    /// **Przykładowe żądanie:**
+    /// 
+    ///     POST /api/auth/refresh
+    ///     {
+    ///        "refreshToken": "8a7b...123z"
+    ///     }
+    /// 
     /// </remarks>
-    /// <param name="request">Obiekt zawierający refresh token.</param>
-    /// <response code="200">Nowy access token wygenerowany.</response>
+    /// <param name="request">Obiekt DTO zawierający token odświeżania.</param>
+    /// <param name="ct">Token anulowania operacji.</param>
+    /// <returns>Nowa para tokenów (Access + ten sam lub nowy Refresh w zależności od implementacji).</returns>
+    /// <response code="200">Token został pomyślnie odświeżony.</response>
     /// <response code="400">
-    /// Refresh token nieprawidłowy lub wygasły (np. <c>InvalidOperationException</c> z serwisu).
+    /// Przesłany refresh token jest nieprawidłowy, wygasł lub został unieważniony.
+    /// Komunikat: "Invalid refresh token."
     /// </response>
     [HttpPost("refresh")]
     [AllowAnonymous]
-    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(AuthResponse))]
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<AuthResponse>> Refresh(
         [FromBody] RefreshRequestDto request,
@@ -92,19 +132,23 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Wylogowuje użytkownika (unieważnia refresh token).
+    /// Wylogowanie (Unieważnienie Refresh Tokena).
     /// </summary>
     /// <remarks>
-    /// Usuwa wskazany <c>refreshToken</c> z bazy.
-    /// Access token wygaśnie sam – backend go nie „zabija” natychmiast.
+    /// Usuwa wskazany `refreshToken` z bazy danych, zapobiegając jego dalszemu użyciu do generowania nowych tokenów dostępowych.
+    /// Operacja jest idempotentna – jeśli token nie istnieje, endpoint również zwraca 204.
+    /// 
+    /// **Wymagania:**
+    /// * Użytkownik musi być zalogowany (wymagany nagłówek `Authorization: Bearer ...`).
     /// </remarks>
-    /// <param name="dto">Obiekt z refresh tokenem do unieważnienia.</param>
-    /// <response code="204">
-    /// Refresh token został unieważniony (lub nie istniał – operacja jest idempotentna).
-    /// </response>
+    /// <param name="dto">Obiekt zawierający token do unieważnienia.</param>
+    /// <param name="ct">Token anulowania operacji.</param>
+    /// <response code="204">Pomyślnie wylogowano (token usunięty lub nie istniał).</response>
+    /// <response code="401">Brak ważnego tokena dostępowego w nagłówku (użytkownik niezalogowany).</response>
     [HttpPost("logout")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Logout(
         [FromBody] LogoutRequestDto dto,
         CancellationToken ct)

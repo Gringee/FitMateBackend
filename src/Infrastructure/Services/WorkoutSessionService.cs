@@ -1,11 +1,11 @@
+using Application.Abstractions;
+using Application.DTOs;
+using Application.Common.Security; // Extension GetUserId()
 using Domain.Entities;
 using Domain.Enums;
 using Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
-using Application.Abstractions;
-using Application.DTOs;
 using Microsoft.AspNetCore.Http;
-using Application.Common.Security;
+using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Services;
 
@@ -20,24 +20,17 @@ public class WorkoutSessionService : IWorkoutSessionService
         _http = http;
     }
 
-    private Guid CurrentUserId()
-    {
-        var user = _http.HttpContext?.User
-                   ?? throw new UnauthorizedAccessException("No HttpContext/User.");
-        return user.GetUserId();
-    }
+    private Guid UserId => _http.HttpContext?.User.GetUserId() 
+                           ?? throw new UnauthorizedAccessException("No HttpContext/User.");
 
     public async Task<WorkoutSessionDto> StartAsync(StartSessionRequest req, CancellationToken ct)
     {
-        var userId = CurrentUserId();
+        var userId = UserId;
 
-        var sch = await _db.ScheduledWorkouts
-            .Include(x => x.Exercises)
-            .ThenInclude(e => e.Sets)
-            .FirstOrDefaultAsync(
-                x => x.Id == req.ScheduledId && x.UserId == userId,
-                ct)
-            ?? throw new KeyNotFoundException("Scheduled workout not found");
+        var sch = await _db.ScheduledWorkouts.Include(x => x.Exercises)
+                      .ThenInclude(e => e.Sets)
+                      .FirstOrDefaultAsync(x => x.Id == req.ScheduledId && x.UserId == userId, ct) ??
+                  throw new KeyNotFoundException("Scheduled workout not found");
 
         var session = new WorkoutSession
         {
@@ -50,14 +43,19 @@ public class WorkoutSessionService : IWorkoutSessionService
                 .Select((e, idx) => new SessionExercise
                 {
                     Id = Guid.NewGuid(),
+                    WorkoutSessionId = Guid.Empty, 
                     Order = idx + 1,
                     Name = e.Name,
                     RestSecPlanned = e.RestSeconds,
+                    RestSecActual = null,
+                    IsAdHoc = false,                    
+                    ScheduledExerciseId = e.Id,         
                     Sets = e.Sets
                         .OrderBy(s => s.SetNumber)
                         .Select(s => new SessionSet
                         {
                             Id = Guid.NewGuid(),
+                            SessionExerciseId = Guid.Empty, 
                             SetNumber = s.SetNumber,
                             RepsPlanned = s.Reps,
                             WeightPlanned = s.Weight
@@ -73,45 +71,45 @@ public class WorkoutSessionService : IWorkoutSessionService
         return await MapDtoAsync(session.Id, ct);
     }
 
-    public async Task<WorkoutSessionDto> PatchSetAsync(Guid sessionId, PatchSetRequest req, CancellationToken ct)
+    public async Task<WorkoutSessionDto> PatchSetAsync(Guid sessionId, Guid setId, PatchSetRequest req, CancellationToken ct)
     {
-        var userId = CurrentUserId();
+        var userId = UserId;
 
         var sess = await _db.WorkoutSessions
-            .Include(s => s.Exercises)
-            .ThenInclude(e => e.Sets)
-            .FirstOrDefaultAsync(x => x.Id == sessionId && x.UserId == userId, ct)
-            ?? throw new KeyNotFoundException("Session not found");
+                       .FirstOrDefaultAsync(x => x.Id == sessionId && x.UserId == userId, ct) ??
+                   throw new KeyNotFoundException("Session not found");
 
         if (!string.Equals(sess.Status, "in_progress", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Session not in progress");
 
-        var exercise = sess.Exercises.FirstOrDefault(x => x.Order == req.ExerciseOrder)
-            ?? throw new KeyNotFoundException("Exercise not found");
+        var set = await _db.SessionExercises
+            .Where(se => se.WorkoutSessionId == sessionId)
+            .SelectMany(se => se.Sets)
+            .FirstOrDefaultAsync(s => s.Id == setId, ct);
 
-        var set = exercise.Sets.FirstOrDefault(x => x.SetNumber == req.SetNumber)
-            ?? throw new KeyNotFoundException("Set not found");
+        if (set == null)
+            throw new KeyNotFoundException("Set not found in this session");
 
-        set.RepsDone = req.RepsDone;
-        set.WeightDone = req.WeightDone;
-        set.Rpe = req.Rpe;
-        set.IsFailure = req.IsFailure;
+        if (req.RepsDone.HasValue) set.RepsDone = req.RepsDone;
+        if (req.WeightDone.HasValue) set.WeightDone = req.WeightDone;
+        if (req.Rpe.HasValue) set.Rpe = req.Rpe;
+        if (req.IsFailure.HasValue) set.IsFailure = req.IsFailure;
 
         await _db.SaveChangesAsync(ct);
+    
         return await MapDtoAsync(sessionId, ct);
     }
 
     public async Task<WorkoutSessionDto> CompleteAsync(Guid sessionId, CompleteSessionRequest req, CancellationToken ct)
     {
-        var userId = CurrentUserId();
+        var userId = UserId;
 
-        var sess = await _db.WorkoutSessions
-                       .FirstOrDefaultAsync(x => x.Id == sessionId && x.UserId == userId, ct)
-                   ?? throw new KeyNotFoundException("Session not found");
+        var sess = await _db.WorkoutSessions.FirstOrDefaultAsync(x => x.Id == sessionId && x.UserId == userId, ct) ??
+                   throw new KeyNotFoundException("Session not found");
 
         if (!string.Equals(sess.Status, "in_progress", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Session not in progress");
-        
+
         DateTime completedAtUtc;
         if (req.CompletedAtUtc is null)
         {
@@ -125,7 +123,7 @@ public class WorkoutSessionService : IWorkoutSessionService
         {
             completedAtUtc = req.CompletedAtUtc.Value.ToUniversalTime();
         }
-        else 
+        else
         {
             completedAtUtc = req.CompletedAtUtc.Value;
         }
@@ -134,13 +132,10 @@ public class WorkoutSessionService : IWorkoutSessionService
         sess.CompletedAtUtc = completedAtUtc;
         sess.DurationSec = (int)Math.Max(0, (sess.CompletedAtUtc.Value - sess.StartedAtUtc).TotalSeconds);
 
-        if (!string.IsNullOrWhiteSpace(req.SessionNotes))
-            sess.SessionNotes = req.SessionNotes;
+        if (!string.IsNullOrWhiteSpace(req.SessionNotes)) sess.SessionNotes = req.SessionNotes;
 
-        var sch = await _db.ScheduledWorkouts
-            .FirstOrDefaultAsync(x => x.Id == sess.ScheduledId && x.UserId == userId, ct);
-
-        if (sch is not null && sch.Status == ScheduledStatus.Planned)
+        var sch = await _db.ScheduledWorkouts.FirstOrDefaultAsync(x => x.Id == sess.ScheduledId && x.UserId == userId, ct);
+        if (sch is not null && sch.Status == ScheduledStatus.Planned) 
             sch.Status = ScheduledStatus.Completed;
 
         await _db.SaveChangesAsync(ct);
@@ -149,11 +144,10 @@ public class WorkoutSessionService : IWorkoutSessionService
 
     public async Task<WorkoutSessionDto> AbortAsync(Guid sessionId, AbortSessionRequest req, CancellationToken ct)
     {
-        var userId = CurrentUserId();
+        var userId = UserId;
 
-        var sess = await _db.WorkoutSessions
-            .FirstOrDefaultAsync(x => x.Id == sessionId && x.UserId == userId, ct)
-            ?? throw new KeyNotFoundException("Session not found");
+        var sess = await _db.WorkoutSessions.FirstOrDefaultAsync(x => x.Id == sessionId && x.UserId == userId, ct) ??
+                   throw new KeyNotFoundException("Session not found");
 
         if (!string.Equals(sess.Status, "in_progress", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Session not in progress");
@@ -173,108 +167,121 @@ public class WorkoutSessionService : IWorkoutSessionService
 
     public async Task<WorkoutSessionDto?> GetByIdAsync(Guid id, CancellationToken ct)
     {
-        var userId = CurrentUserId();
-
-        var exists = await _db.WorkoutSessions
-            .AnyAsync(x => x.Id == id && x.UserId == userId, ct);
-
+        var userId = UserId;
+        var exists = await _db.WorkoutSessions.AnyAsync(x => x.Id == id && x.UserId == userId, ct);
         if (!exists) return null;
 
         return await MapDtoAsync(id, ct);
     }
 
-    public async Task<IReadOnlyList<WorkoutSessionDto>> GetByRangeAsync(
-        DateTime fromUtc, DateTime toUtc, CancellationToken ct)
+    public async Task<IReadOnlyList<WorkoutSessionDto>> GetByRangeAsync(DateTime fromUtc, DateTime toUtc, CancellationToken ct)
     {
-        var userId = CurrentUserId();
+        var userId = UserId;
 
-        var sessions = await _db.WorkoutSessions
-            .AsNoTracking()
-            .Include(x => x.Exercises)
-            .ThenInclude(e => e.Sets)
-            .Where(x => x.UserId == userId &&
-                        x.StartedAtUtc >= fromUtc &&
-                        x.StartedAtUtc < toUtc)
+        var sessions = await _db.WorkoutSessions.AsNoTracking()
+            .Include(x => x.Exercises).ThenInclude(e => e.Sets)
+            .Where(x => x.UserId == userId && x.StartedAtUtc >= fromUtc && x.StartedAtUtc < toUtc)
             .OrderByDescending(x => x.StartedAtUtc)
             .ToListAsync(ct);
 
-        return sessions.Select(s => new WorkoutSessionDto
-        {
-            Id = s.Id,
-            ScheduledId = s.ScheduledId,
-            StartedAtUtc = s.StartedAtUtc,
-            CompletedAtUtc = s.CompletedAtUtc,
-            DurationSec = s.DurationSec,
-            Status = s.Status,
-            SessionNotes = s.SessionNotes,
-            Exercises = s.Exercises
-                .OrderBy(e => e.Order)
-                .Select(e => new SessionExerciseDto
-                {
-                    Order = e.Order,
-                    Name = e.Name,
-                    RestSecPlanned = e.RestSecPlanned,
-                    RestSecActual = e.RestSecActual,
-                    Sets = e.Sets
-                        .OrderBy(z => z.SetNumber)
-                        .Select(z => new SessionSetDto
-                        {
-                            SetNumber     = z.SetNumber,
-                            RepsPlanned   = z.RepsPlanned,
-                            WeightPlanned = z.WeightPlanned,
-                            RepsDone      = z.RepsDone,
-                            WeightDone    = z.WeightDone,
-                            Rpe           = z.Rpe,
-                            IsFailure     = z.IsFailure
-                        })
-                        .ToList()
-                })
-                .ToList()
-        }).ToList();
+        return sessions.Select(s => MapToDto(s)).ToList();
     }
 
+    public async Task<WorkoutSessionDto> AddExerciseAsync(Guid sessionId, AddSessionExerciseRequest req, CancellationToken ct)
+{
+    var userId = UserId;
+    
+    var sess = await _db.WorkoutSessions
+                   .AsNoTracking() 
+                   .FirstOrDefaultAsync(s => s.Id == sessionId && s.UserId == userId, ct) ??
+               throw new KeyNotFoundException("Session not found");
+
+    if (!string.Equals(sess.Status, "in_progress", StringComparison.OrdinalIgnoreCase))
+        throw new InvalidOperationException("Cannot add exercises to a non in-progress session.");
+    
+    var maxOrder = await _db.SessionExercises
+        .Where(e => e.WorkoutSessionId == sessionId)
+        .Select(e => (int?)e.Order)
+        .MaxAsync(ct) ?? 0;
+
+    var targetOrder = maxOrder + 1;
+    
+    var exercise = new SessionExercise
+    {
+        Id = Guid.NewGuid(),
+        WorkoutSessionId = sessionId, 
+        Order = targetOrder,
+        Name = req.Name,
+        RestSecPlanned = req.RestSecPlanned ?? 0,
+        RestSecActual = null,
+        IsAdHoc = true,
+        ScheduledExerciseId = null
+    };
+
+    var nextSetNumber = 1;
+    foreach (var s in req.Sets)
+    {
+        exercise.Sets.Add(new SessionSet
+        {
+            Id = Guid.NewGuid(),
+            SessionExerciseId = exercise.Id,
+            SetNumber = nextSetNumber++,
+            RepsPlanned = s.RepsPlanned,
+            WeightPlanned = s.WeightPlanned,
+            RepsDone = null,
+            WeightDone = null,
+            Rpe = null,
+            IsFailure = null
+        });
+    }
+    
+    _db.SessionExercises.Add(exercise);
+    
+    await _db.SaveChangesAsync(ct);
+    
+    return await MapDtoAsync(sessionId, ct);
+}
     private async Task<WorkoutSessionDto> MapDtoAsync(Guid id, CancellationToken ct)
     {
-        var userId = CurrentUserId();
-
-        var s = await _db.WorkoutSessions
-            .AsNoTracking()
-            .Include(x => x.Exercises)
-            .ThenInclude(e => e.Sets)
+        var userId = UserId;
+        var s = await _db.WorkoutSessions.AsNoTracking()
+            .Include(x => x.Exercises).ThenInclude(e => e.Sets)
             .FirstAsync(x => x.Id == id && x.UserId == userId, ct);
 
-        return new WorkoutSessionDto
-        {
-            Id = s.Id,
-            ScheduledId = s.ScheduledId,
-            StartedAtUtc = s.StartedAtUtc,
-            CompletedAtUtc = s.CompletedAtUtc,
-            DurationSec = s.DurationSec,
-            Status = s.Status,
-            SessionNotes = s.SessionNotes,
-            Exercises = s.Exercises
-                .OrderBy(e => e.Order)
-                .Select(e => new SessionExerciseDto
-                {
-                    Order = e.Order,
-                    Name = e.Name,
-                    RestSecPlanned = e.RestSecPlanned,
-                    RestSecActual = e.RestSecActual,
-                    Sets = e.Sets
-                        .OrderBy(z => z.SetNumber)
-                        .Select(z => new SessionSetDto
-                        {
-                            SetNumber     = z.SetNumber,
-                            RepsPlanned   = z.RepsPlanned,
-                            WeightPlanned = z.WeightPlanned,
-                            RepsDone      = z.RepsDone,
-                            WeightDone    = z.WeightDone,
-                            Rpe           = z.Rpe,
-                            IsFailure     = z.IsFailure
-                        })
-                        .ToList()
-                })
-                .ToList()
-        };
+        return MapToDto(s);
     }
+    
+    private static WorkoutSessionDto MapToDto(WorkoutSession s) => new()
+    {
+        Id = s.Id,
+        ScheduledId = s.ScheduledId,
+        StartedAtUtc = s.StartedAtUtc,
+        CompletedAtUtc = s.CompletedAtUtc,
+        DurationSec = s.DurationSec,
+        Status = s.Status,
+        SessionNotes = s.SessionNotes,
+        Exercises = s.Exercises.OrderBy(e => e.Order)
+            .Select(e => new SessionExerciseDto
+            {
+                Id = e.Id,
+                Order = e.Order,
+                Name = e.Name,
+                RestSecPlanned = e.RestSecPlanned,
+                RestSecActual = e.RestSecActual,
+                Sets = e.Sets.OrderBy(z => z.SetNumber)
+                    .Select(z => new SessionSetDto
+                    {
+                        Id = z.Id,
+                        SetNumber = z.SetNumber,
+                        RepsPlanned = z.RepsPlanned,
+                        WeightPlanned = z.WeightPlanned,
+                        RepsDone = z.RepsDone,
+                        WeightDone = z.WeightDone,
+                        Rpe = z.Rpe,
+                        IsFailure = z.IsFailure
+                    })
+                    .ToList()
+            })
+            .ToList()
+    };
 }

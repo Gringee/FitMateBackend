@@ -10,6 +10,7 @@ public sealed class PlanConfiguration : IEntityTypeConfiguration<Plan>
     {
         builder.ToTable("plans");
         builder.HasKey(p => p.Id);
+        
         builder.Property(p => p.PlanName).HasMaxLength(200).IsRequired();
         builder.Property(p => p.Type).HasMaxLength(100).IsRequired();
         builder.Property(p => p.Notes).HasColumnType("text");
@@ -17,13 +18,13 @@ public sealed class PlanConfiguration : IEntityTypeConfiguration<Plan>
         builder.HasOne(x => x.CreatedByUser)
             .WithMany() 
             .HasForeignKey(x => x.CreatedByUserId)
-            .OnDelete(DeleteBehavior.Restrict);
+            .OnDelete(DeleteBehavior.Cascade); 
         
         builder.HasIndex(x => new { x.CreatedByUserId, x.PlanName });
         
         builder.HasMany(p => p.Exercises)
-               .WithOne(e => e.Plan)
-               .HasForeignKey(e => e.PlanId)
-               .OnDelete(DeleteBehavior.Cascade);
+            .WithOne(e => e.Plan)
+            .HasForeignKey(e => e.PlanId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

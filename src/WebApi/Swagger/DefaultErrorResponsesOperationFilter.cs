@@ -5,14 +5,10 @@ using Swashbuckle.AspNetCore.SwaggerGen;
 
 namespace WebApi.Swagger;
 
-/// <summary>
-/// Dodaje domyślne odpowiedzi 4xx/5xx (ProblemDetails) do wszystkich operacji.
-/// </summary>
 public class DefaultErrorResponsesOperationFilter : IOperationFilter
 {
     public void Apply(OpenApiOperation operation, OperationFilterContext context)
     {
-        // Schemat ProblemDetails – swagger pokaże strukturę błędu
         var problemSchema = context.SchemaGenerator.GenerateSchema(
             typeof(ProblemDetails),
             context.SchemaRepository);
@@ -25,7 +21,6 @@ public class DefaultErrorResponsesOperationFilter : IOperationFilter
                 operation.Responses[statusCode] = response;
             }
 
-            // Jeśli już ktoś dodał content ręcznie – nie nadpisujemy
             if (response.Content.Count == 0)
             {
                 var mediaType = new OpenApiMediaType
@@ -42,7 +37,6 @@ public class DefaultErrorResponsesOperationFilter : IOperationFilter
             }
         }
 
-        // PRZYKŁADOWE ciała (proste, front zobaczy format):
         var badRequestExample = new OpenApiObject
         {
             ["type"] = new OpenApiString("https://httpstatuses.com/400"),
@@ -79,7 +73,6 @@ public class DefaultErrorResponsesOperationFilter : IOperationFilter
             ["status"] = new OpenApiInteger(500)
         };
 
-        // Dodajemy standardowy zestaw odpowiedzi:
         AddProblemResponse("400", "Bad request / validation or business error.", badRequestExample);
         AddProblemResponse("401", "Unauthorized – brak lub błędny token.", unauthorizedExample);
         AddProblemResponse("403", "Forbidden – brak uprawnień.", forbiddenExample);

@@ -20,4 +20,5 @@ public class ScheduledWorkout
     
     public Guid UserId { get; set; }
     public User User { get; set; } = null!;
+    public bool IsVisibleToFriends { get; set; } = false;
 }

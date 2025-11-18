@@ -1,5 +1,6 @@
 using Application.Abstractions;
 using Application.DTOs.Analytics;
+using Domain.Enums; 
 using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using System.Globalization;
@@ -27,140 +28,156 @@ public class AnalyticsService : IAnalyticsService
 
     public async Task<OverviewDto> GetOverviewAsync(DateTime fromUtc, DateTime toUtc, CancellationToken ct)
     {
-        if (fromUtc > toUtc)
-            (fromUtc, toUtc) = (toUtc, fromUtc);
-        
+        if (fromUtc > toUtc) (fromUtc, toUtc) = (toUtc, fromUtc);
         var userId = CurrentUserId();
 
-        var sessions = await _db.WorkoutSessions
+        var sessionsQuery = _db.WorkoutSessions
             .AsNoTracking()
-            .Where(ws => ws.UserId == userId && ws.CompletedAtUtc != null && ws.StartedAtUtc >= fromUtc && ws.StartedAtUtc < toUtc)
-            .Select(ws => new {
-                ws.Id,
-                Sets = ws.Exercises.SelectMany(se => se.Sets)
-            })
-            .ToListAsync(ct);
+            .Where(ws => ws.UserId == userId && ws.CompletedAtUtc != null && 
+                         ws.StartedAtUtc >= fromUtc && ws.StartedAtUtc < toUtc);
 
-        var allSets = sessions.SelectMany(s => s.Sets).ToList();
+        var setsQuery = sessionsQuery
+            .SelectMany(ws => ws.Exercises.SelectMany(se => se.Sets));
 
-        decimal totalVolume = allSets.Sum(s =>
-            (decimal)((s.RepsDone ?? s.RepsPlanned) * (double)(s.WeightDone ?? s.WeightPlanned)));
+        var totalVolume = await setsQuery
+            .SumAsync(s => (decimal)((s.RepsDone ?? s.RepsPlanned) * (double)(s.WeightDone ?? s.WeightPlanned)), ct);
+        
+        var avgIntensity = await setsQuery
+            .Where(s => s.WeightDone != null && s.WeightDone > 0)
+            .AverageAsync(s => (double?)s.WeightDone, ct) ?? 0; 
 
-        var intensities = allSets
-            .Where(s => s.WeightDone != null)
-            .Select(s => (double)s.WeightDone!)
-            .ToList();
-
-        double avgIntensity = intensities.Count == 0 ? 0 : intensities.Average();
-        int sessionsCount = sessions.Count;
+        var sessionsCount = await sessionsQuery.CountAsync(ct);
 
         DateOnly fromDate = DateOnly.FromDateTime(fromUtc);
-        DateOnly toDate = DateOnly.FromDateTime(toUtc.AddDays(-0));
+        DateOnly toDate = DateOnly.FromDateTime(toUtc);
 
-        int planned = await _db.ScheduledWorkouts
+        var scheduledBase = _db.ScheduledWorkouts
             .AsNoTracking()
-            .CountAsync(sw => sw.UserId == userId && sw.Date >= fromDate && sw.Date < toDate, ct);
+            .Where(sw => sw.UserId == userId && sw.Date >= fromDate && sw.Date < toDate);
 
-        int completed = await _db.ScheduledWorkouts
-            .AsNoTracking()
-            .CountAsync(sw => sw.UserId == userId && sw.Status.ToString() == "Completed" && sw.Date >= fromDate && sw.Date < toDate, ct);
+        int planned = await scheduledBase.CountAsync(ct);
+        int completed = await scheduledBase.CountAsync(sw => sw.Status == ScheduledStatus.Completed, ct);
 
         return new OverviewDto
         {
             TotalVolume = decimal.Round(totalVolume, 2),
             AvgIntensity = Math.Round(avgIntensity, 2),
             SessionsCount = sessionsCount,
-            AdherencePct = planned == 0 ? 0 : Math.Round(completed * 100.0 / planned, 1),
+            AdherencePct = planned == 0 ? 0 : Math.Round((double)completed * 100 / planned, 1),
             NewPrs = 0
         };
     }
 
     public async Task<IReadOnlyList<TimePointDto>> GetVolumeAsync(DateTime fromUtc, DateTime toUtc, string groupBy, string? exerciseName, CancellationToken ct)
     {
-        if (fromUtc > toUtc)
-            (fromUtc, toUtc) = (toUtc, fromUtc);
-        
+        if (fromUtc > toUtc) (fromUtc, toUtc) = (toUtc, fromUtc);
         var userId = CurrentUserId();
         groupBy = (groupBy ?? "day").ToLowerInvariant();
 
-        var q = _db.WorkoutSessions
+        var baseQuery = _db.WorkoutSessions
             .AsNoTracking()
-            .Where(ws => ws.UserId == userId && ws.CompletedAtUtc != null && ws.StartedAtUtc >= fromUtc && ws.StartedAtUtc < toUtc)
+            .Where(ws => ws.UserId == userId && ws.CompletedAtUtc != null && 
+                         ws.StartedAtUtc >= fromUtc && ws.StartedAtUtc < toUtc);
+
+        var flatQuery = baseQuery
             .SelectMany(ws => ws.Exercises.SelectMany(se => se.Sets.Select(ss => new
             {
-                ws.StartedAtUtc,
-                se.Name,
+                Date = ws.StartedAtUtc.Date,
+                ExerciseName = se.Name,
                 Volume = (decimal)((ss.RepsDone ?? ss.RepsPlanned) * (double)(ss.WeightDone ?? ss.WeightPlanned))
             })));
 
         if (!string.IsNullOrWhiteSpace(exerciseName))
-            q = q.Where(x => x.Name == exerciseName);
+        {
+            flatQuery = flatQuery.Where(x => x.ExerciseName == exerciseName);
+        }
 
         if (groupBy == "exercise")
         {
-            var list = await q
-                .GroupBy(x => x.Name)
+            return await flatQuery
+                .GroupBy(x => x.ExerciseName)
                 .Select(g => new TimePointDto
                 {
                     Period = g.Key,
-                    Value = g.Sum(x => x.Volume),
-                    ExerciseName = g.Key
+                    ExerciseName = g.Key,
+                    Value = g.Sum(x => x.Volume)
                 })
-                .OrderBy(x => x.Period)
+                .OrderByDescending(x => x.Value)
                 .ToListAsync(ct);
-            return list;
         }
 
-        var data = await q.ToListAsync(ct);
-        var result = data
-            .GroupBy(x => groupBy == "week"
-                ? $"{ISOWeek.GetYear(x.StartedAtUtc):D4}-W{ISOWeek.GetWeekOfYear(x.StartedAtUtc):D2}"
-                : x.StartedAtUtc.ToString("yyyy-MM-dd"))
-            .Select(g => new TimePointDto { Period = g.Key, Value = g.Sum(x => x.Volume) })
-            .OrderBy(x => x.Period)
-            .ToList();
+        var dailyData = await flatQuery
+            .GroupBy(x => x.Date)
+            .Select(g => new
+            {
+                Date = g.Key,
+                TotalVolume = g.Sum(x => x.Volume)
+            })
+            .OrderBy(x => x.Date)
+            .ToListAsync(ct);
 
-        return result;
+        if (groupBy == "week")
+        {
+            return dailyData
+                .GroupBy(x => $"{ISOWeek.GetYear(x.Date):D4}-W{ISOWeek.GetWeekOfYear(x.Date):D2}")
+                .Select(g => new TimePointDto
+                {
+                    Period = g.Key,
+                    Value = g.Sum(x => x.TotalVolume)
+                })
+                .ToList();
+        }
+
+        return dailyData
+            .Select(x => new TimePointDto
+            {
+                Period = x.Date.ToString("yyyy-MM-dd"),
+                Value = x.TotalVolume
+            })
+            .ToList();
     }
 
     public async Task<IReadOnlyList<E1rmPointDto>> GetE1RmAsync(string exerciseName, DateTime fromUtc, DateTime toUtc, CancellationToken ct)
     {
-        if (fromUtc > toUtc)
-            (fromUtc, toUtc) = (toUtc, fromUtc);
-        
+        if (fromUtc > toUtc) (fromUtc, toUtc) = (toUtc, fromUtc);
         var userId = CurrentUserId();
-
-        var rows = await _db.WorkoutSessions
+        
+        var query = _db.WorkoutSessions
             .AsNoTracking()
-            .Where(ws => ws.UserId == userId && ws.CompletedAtUtc != null && ws.StartedAtUtc >= fromUtc && ws.StartedAtUtc < toUtc)
+            .Where(ws => ws.UserId == userId && ws.CompletedAtUtc != null && 
+                         ws.StartedAtUtc >= fromUtc && ws.StartedAtUtc < toUtc)
             .SelectMany(ws => ws.Exercises
                 .Where(se => se.Name == exerciseName)
                 .SelectMany(se => se.Sets
-                    .Where(ss => ss.RepsDone != null && ss.WeightDone != null)
-                    .Select(ss => new { ws.Id, ws.StartedAtUtc, ss.RepsDone, ss.WeightDone })))
-            .ToListAsync(ct);
+                    .Where(ss => ss.RepsDone != null && ss.WeightDone != null && ss.RepsDone > 0)
+                    .Select(ss => new 
+                    { 
+                        Date = ws.StartedAtUtc.Date,
+                        SessionId = ws.Id,
+                        CalculatedE1RM = (decimal)ss.WeightDone! * (1 + (decimal)ss.RepsDone! / 30m)
+                    })));
 
-        var grouped = rows
-            .GroupBy(r => DateOnly.FromDateTime(r.StartedAtUtc.Date))
-            .Select(g => new E1rmPointDto
+        var groupedData = await query
+            .GroupBy(x => x.Date)
+            .Select(g => new 
             {
                 Day = g.Key,
-                E1Rm = g.Max(r =>
-                    r.WeightDone!.Value * (1 + (decimal)r.RepsDone!.Value / 30m)
-                ),
-                SessionId = rows.FirstOrDefault(r => DateOnly.FromDateTime(r.StartedAtUtc.Date) == g.Key)?.Id
+                MaxE1RM = g.Max(x => x.CalculatedE1RM)
             })
             .OrderBy(x => x.Day)
-            .ToList();
+            .ToListAsync(ct);
 
-        return grouped;
+        return groupedData.Select(x => new E1rmPointDto
+        {
+            Day = DateOnly.FromDateTime(x.Day),
+            E1Rm = Math.Round(x.MaxE1RM, 2),
+            SessionId = null 
+        }).ToList();
     }
 
     public async Task<AdherenceDto> GetAdherenceAsync(DateOnly fromDate, DateOnly toDate, CancellationToken ct)
     {
-        if (fromDate > toDate)
-            (fromDate, toDate) = (toDate, fromDate);
-        
+        if (fromDate > toDate) (fromDate, toDate) = (toDate, fromDate);
         var userId = CurrentUserId();
 
         int planned = await _db.ScheduledWorkouts
@@ -169,7 +186,8 @@ public class AnalyticsService : IAnalyticsService
 
         int completed = await _db.ScheduledWorkouts
             .AsNoTracking()
-            .CountAsync(sw => sw.UserId == userId && sw.Status.ToString() == "Completed" && sw.Date >= fromDate && sw.Date < toDate, ct);
+            .CountAsync(sw => sw.UserId == userId && sw.Status == ScheduledStatus.Completed && 
+                              sw.Date >= fromDate && sw.Date < toDate, ct);
 
         return new AdherenceDto { Planned = planned, Completed = completed };
     }
@@ -177,9 +195,11 @@ public class AnalyticsService : IAnalyticsService
     public async Task<IReadOnlyList<PlanVsActualItemDto>> GetPlanVsActualAsync(Guid sessionId, CancellationToken ct)
     {
         var userId = CurrentUserId();
-
-        var sessionExists = await _db.WorkoutSessions.AnyAsync(s => s.Id == sessionId && s.UserId == userId, ct);
-        if (!sessionExists) return [];
+        
+        var sessionExists = await _db.WorkoutSessions
+            .AnyAsync(s => s.Id == sessionId && s.UserId == userId, ct);
+        
+        if (!sessionExists) return Array.Empty<PlanVsActualItemDto>();
 
         var items = await _db.SessionExercises
             .AsNoTracking()
@@ -196,7 +216,8 @@ public class AnalyticsService : IAnalyticsService
                     RepsDone = ss.RepsDone,
                     WeightDone = ss.WeightDone,
                     Rpe = ss.Rpe,
-                    IsFailure = ss.IsFailure
+                    IsFailure = ss.IsFailure,
+                    IsExtra = se.IsAdHoc 
                 }))
             .ToListAsync(ct);
 
