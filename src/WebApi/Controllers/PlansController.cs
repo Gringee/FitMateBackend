@@ -133,8 +133,15 @@ public class PlansController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Update(Guid id, [FromBody] CreatePlanDto dto, CancellationToken ct)
     {
-        var res = await _svc.UpdateAsync(id, dto, ct);
-        return res is not null ? Ok(res) : NotFound();
+        try
+        {
+            var res = await _svc.UpdateAsync(id, dto, ct);
+            return res is not null ? Ok(res) : NotFound();
+        }
+        catch (Exception ex)
+        {
+            return Problem(detail: ex.ToString(), statusCode: 500);
+        }
     }
 
     /// <summary>

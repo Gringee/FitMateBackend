@@ -107,28 +107,46 @@ public sealed class PlanService : IPlanService
         return p is null ? null : Map(p);
     }
 
-    public async Task<PlanDto?> UpdateAsync(Guid id, CreatePlanDto dto, CancellationToken ct = default)
-    {
-        var userId = UserId;
+public async Task<PlanDto?> UpdateAsync(Guid id, CreatePlanDto dto, CancellationToken ct = default)
+{
+    var userId = UserId;
 
+    using var transaction = await _db.Database.BeginTransactionAsync(ct);
+
+    try
+    {
         var plan = await _db.Plans
-            .Include(p => p.Exercises)
             .FirstOrDefaultAsync(p => p.Id == id && p.CreatedByUserId == userId, ct);
 
         if (plan is null) return null;
+        
+        await _db.Database.ExecuteSqlRawAsync(
+            "DELETE FROM plan_sets WHERE \"PlanExerciseId\" IN (SELECT \"Id\" FROM plan_exercises WHERE \"PlanId\" = {0})",
+            new object[] { id }, ct);
+            
+        await _db.Database.ExecuteSqlRawAsync(
+            "DELETE FROM plan_exercises WHERE \"PlanId\" = {0}",
+            new object[] { id }, ct);
+        
+        _db.ChangeTracker.Clear();
 
+        _db.Plans.Attach(plan);
         plan.PlanName = dto.PlanName;
-        plan.Type     = dto.Type;
-        plan.Notes    = dto.Notes;
+        plan.Type = dto.Type;
+        plan.Notes = dto.Notes;
 
-        _db.PlanExercises.RemoveRange(plan.Exercises);
+        var entry = _db.Entry(plan);
+        entry.Property(p => p.PlanName).IsModified = true;
+        entry.Property(p => p.Type).IsModified = true;
+        entry.Property(p => p.Notes).IsModified = true;
 
         foreach (var ex in dto.Exercises)
         {
             var pe = new PlanExercise
             {
-                Id          = Guid.NewGuid(),
-                Name        = ex.Name,
+                Id = Guid.NewGuid(),
+                PlanId = id, 
+                Name = ex.Name,
                 RestSeconds = ex.Rest
             };
 
@@ -137,19 +155,27 @@ public sealed class PlanService : IPlanService
             {
                 pe.Sets.Add(new PlanSet
                 {
-                    Id             = Guid.NewGuid(),
-                    SetNumber      = i++,
-                    Reps           = s.Reps,
-                    Weight         = s.Weight
+                    Id = Guid.NewGuid(),
+                    PlanExerciseId = pe.Id,
+                    SetNumber = i++,
+                    Reps = s.Reps,
+                    Weight = s.Weight
                 });
             }
-            plan.Exercises.Add(pe);
+            _db.PlanExercises.Add(pe);
         }
         
         await _db.SaveChangesAsync(ct);
-
+        await transaction.CommitAsync(ct);
+        
         return await GetByIdAsync(id, ct);
     }
+    catch
+    {
+        await transaction.RollbackAsync(ct);
+        throw;
+    }
+}
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken ct = default)
     {

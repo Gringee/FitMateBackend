@@ -34,16 +34,16 @@ public class AnalyticsService : IAnalyticsService
         var sessionsQuery = _db.WorkoutSessions
             .AsNoTracking()
             .Where(ws => ws.UserId == userId && ws.CompletedAtUtc != null && 
-                         ws.StartedAtUtc >= fromUtc && ws.StartedAtUtc < toUtc);
+                         ws.StartedAtUtc >= fromUtc && ws.StartedAtUtc <= toUtc);
 
         var setsQuery = sessionsQuery
             .SelectMany(ws => ws.Exercises.SelectMany(se => se.Sets));
 
         var totalVolume = await setsQuery
-            .SumAsync(s => (decimal)((s.RepsDone ?? s.RepsPlanned) * (double)(s.WeightDone ?? s.WeightPlanned)), ct);
+            .SumAsync(s => (decimal)((s.RepsDone ?? 0) * (double)(s.WeightDone ?? 0)), ct);
         
         var avgIntensity = await setsQuery
-            .Where(s => s.WeightDone != null && s.WeightDone > 0)
+            .Where(s => s.WeightDone != null && s.WeightDone > 0 && s.RepsDone > 0) 
             .AverageAsync(s => (double?)s.WeightDone, ct) ?? 0; 
 
         var sessionsCount = await sessionsQuery.CountAsync(ct);
@@ -53,7 +53,7 @@ public class AnalyticsService : IAnalyticsService
 
         var scheduledBase = _db.ScheduledWorkouts
             .AsNoTracking()
-            .Where(sw => sw.UserId == userId && sw.Date >= fromDate && sw.Date < toDate);
+            .Where(sw => sw.UserId == userId && sw.Date >= fromDate && sw.Date <= toDate);
 
         int planned = await scheduledBase.CountAsync(ct);
         int completed = await scheduledBase.CountAsync(sw => sw.Status == ScheduledStatus.Completed, ct);
@@ -77,14 +77,14 @@ public class AnalyticsService : IAnalyticsService
         var baseQuery = _db.WorkoutSessions
             .AsNoTracking()
             .Where(ws => ws.UserId == userId && ws.CompletedAtUtc != null && 
-                         ws.StartedAtUtc >= fromUtc && ws.StartedAtUtc < toUtc);
+                         ws.StartedAtUtc >= fromUtc && ws.StartedAtUtc < toUtc); 
 
         var flatQuery = baseQuery
             .SelectMany(ws => ws.Exercises.SelectMany(se => se.Sets.Select(ss => new
             {
                 Date = ws.StartedAtUtc.Date,
                 ExerciseName = se.Name,
-                Volume = (decimal)((ss.RepsDone ?? ss.RepsPlanned) * (double)(ss.WeightDone ?? ss.WeightPlanned))
+                Volume = (decimal)((ss.RepsDone ?? 0) * (double)(ss.WeightDone ?? 0))
             })));
 
         if (!string.IsNullOrWhiteSpace(exerciseName))
@@ -182,12 +182,12 @@ public class AnalyticsService : IAnalyticsService
 
         int planned = await _db.ScheduledWorkouts
             .AsNoTracking()
-            .CountAsync(sw => sw.UserId == userId && sw.Date >= fromDate && sw.Date < toDate, ct);
+            .CountAsync(sw => sw.UserId == userId && sw.Date >= fromDate && sw.Date <= toDate, ct);
 
         int completed = await _db.ScheduledWorkouts
             .AsNoTracking()
             .CountAsync(sw => sw.UserId == userId && sw.Status == ScheduledStatus.Completed && 
-                              sw.Date >= fromDate && sw.Date < toDate, ct);
+                              sw.Date >= fromDate && sw.Date <= toDate, ct);
 
         return new AdherenceDto { Planned = planned, Completed = completed };
     }

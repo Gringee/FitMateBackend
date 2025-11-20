@@ -103,11 +103,11 @@ builder.Services.AddSwaggerGen(c =>
 // ---------------- CORS ----------------
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowMyReactApp", policy =>
+    options.AddPolicy("DevelopmentPolicy", policy =>
     {
-        policy.WithOrigins("http://localhost:5173")
-              .AllowAnyHeader()
-              .AllowAnyMethod();
+        policy.AllowAnyOrigin() 
+            .AllowAnyMethod()
+            .AllowAnyHeader();
     });
 });
 
@@ -140,7 +140,7 @@ app.UseSwaggerUI(c =>
     c.ConfigObject.AdditionalItems["persistAuthorization"] = true;
 });
 
-app.UseCors("AllowMyReactApp");
+app.UseCors("DevelopmentPolicy");
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
