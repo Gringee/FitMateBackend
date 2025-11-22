@@ -4,18 +4,17 @@ using Application.DTOs;
 using Application.Common.Security; // Extension GetUserId()
 using Domain.Entities;
 using Domain.Enums;
-using Infrastructure.Persistence;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
-namespace Infrastructure.Services;
+namespace Application.Services;
 
 public sealed class ScheduledService : IScheduledService
 {
-    private readonly AppDbContext _db;
+    private readonly IApplicationDbContext _db;
     private readonly IHttpContextAccessor _http;
 
-    public ScheduledService(AppDbContext db, IHttpContextAccessor http)
+    public ScheduledService(IApplicationDbContext db, IHttpContextAccessor http)
     {
         _db = db;
         _http = http;

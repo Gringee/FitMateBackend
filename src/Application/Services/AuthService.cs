@@ -1,21 +1,21 @@
 using Application.Abstractions;
 using Application.DTOs.Auth;
 using Domain.Entities;
-using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
-using BCryptNet = BCrypt.Net.BCrypt;
 
-namespace Infrastructure.Auth;
+namespace Application.Services;
 
 public class AuthService : IAuthService
 {
-    private readonly AppDbContext _db;
+    private readonly IApplicationDbContext _db;
     private readonly ITokenService _tokens;
+    private readonly IPasswordHasher _hasher;
 
-    public AuthService(AppDbContext db, ITokenService tokens)
+    public AuthService(IApplicationDbContext db, ITokenService tokens, IPasswordHasher hasher)
     {
         _db = db;
         _tokens = tokens;
+        _hasher = hasher;
     }
 
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request, CancellationToken ct)
@@ -33,7 +33,7 @@ public class AuthService : IAuthService
         {
             Id = Guid.NewGuid(),
             Email = email,
-            PasswordHash = BCryptNet.HashPassword(request.Password),
+            PasswordHash = _hasher.HashPassword(request.Password),
             FullName = request.FullName.Trim(),
             UserName = uname
         };
@@ -87,7 +87,7 @@ public class AuthService : IAuthService
             .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(u => u.Email == id || u.UserName == id, ct);
 
-        if (user == null || !BCryptNet.Verify(request.Password, user.PasswordHash))
+        if (user == null || !_hasher.VerifyPassword(request.Password, user.PasswordHash))
             throw new InvalidOperationException("Invalid credentials.");
 
         var roles = user.UserRoles.Select(ur => ur.Role.Name).ToArray();

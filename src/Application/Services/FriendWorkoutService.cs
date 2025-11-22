@@ -1,21 +1,20 @@
 using Application.Abstractions;
 using Application.DTOs;
 using Domain.Enums;
-using Infrastructure.Persistence;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Application.Common.Security; // Extension
 
-namespace Infrastructure.Services;
+namespace Application.Services;
 
 public sealed class FriendWorkoutService : IFriendWorkoutService
 {
-    private readonly AppDbContext _db;
+    private readonly IApplicationDbContext _db;
     private readonly IHttpContextAccessor _http;
     private readonly IFriendshipService _friends; 
 
     public FriendWorkoutService(
-        AppDbContext db, 
+        IApplicationDbContext db, 
         IHttpContextAccessor http, 
         IFriendshipService friends)
     {

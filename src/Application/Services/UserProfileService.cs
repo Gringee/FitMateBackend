@@ -1,22 +1,22 @@
 using Application.Abstractions;
 using Application.DTOs;
 using Application.Common.Security; // Extension
-using Infrastructure.Persistence;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
-using BCryptNet = BCrypt.Net.BCrypt;
 
-namespace Infrastructure.Services;
+namespace Application.Services;
 
 public sealed class UserProfileService : IUserProfileService
 {
-    private readonly AppDbContext _db;
+    private readonly IApplicationDbContext _db;
     private readonly IHttpContextAccessor _http;
+    private readonly IPasswordHasher _hasher;
 
-    public UserProfileService(AppDbContext db, IHttpContextAccessor http)
+    public UserProfileService(IApplicationDbContext db, IHttpContextAccessor http, IPasswordHasher hasher)
     {
         _db = db;
         _http = http;
+        _hasher = hasher;
     }
 
     private Guid UserId => _http.HttpContext?.User.GetUserId() 
@@ -81,10 +81,10 @@ public sealed class UserProfileService : IUserProfileService
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == UserId, ct)
             ?? throw new KeyNotFoundException("User not found.");
         
-        if (!BCryptNet.Verify(request.CurrentPassword, user.PasswordHash))
+        if (!_hasher.VerifyPassword(request.CurrentPassword, user.PasswordHash))
             throw new InvalidOperationException("Current password is incorrect.");
 
-        user.PasswordHash = BCryptNet.HashPassword(request.NewPassword);
+        user.PasswordHash = _hasher.HashPassword(request.NewPassword);
         await _db.SaveChangesAsync(ct);
     }
 }

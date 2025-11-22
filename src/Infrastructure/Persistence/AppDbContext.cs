@@ -2,9 +2,11 @@
 using Microsoft.EntityFrameworkCore;
 using System.Reflection;
 
+using Application.Abstractions;
+
 namespace Infrastructure.Persistence
 {
-    public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
+    public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options), IApplicationDbContext
     {
         public DbSet<Plan> Plans => Set<Plan>();
         public DbSet<PlanExercise> PlanExercises => Set<PlanExercise>();

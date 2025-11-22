@@ -2,18 +2,17 @@ using Application.Abstractions;
 using Application.Common.Security; // Używamy Extension Method
 using Application.DTOs;
 using Domain.Entities;
-using Infrastructure.Persistence;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
-namespace Infrastructure.Services;
+namespace Application.Services;
 
 public class FriendshipService : IFriendshipService
 {
-    private readonly AppDbContext _db;
+    private readonly IApplicationDbContext _db;
     private readonly IHttpContextAccessor _http;
 
-    public FriendshipService(AppDbContext db, IHttpContextAccessor http)
+    public FriendshipService(IApplicationDbContext db, IHttpContextAccessor http)
     {
         _db = db;
         _http = http;

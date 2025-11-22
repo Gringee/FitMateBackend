@@ -1,18 +1,18 @@
 using Application.Abstractions;
 using Domain.Entities;
-using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
-using BCryptNet = BCrypt.Net.BCrypt;
 
-namespace Infrastructure.Services;
+namespace Application.Services;
 
 public sealed class UserAdminService : IUserAdminService
 {
-    private readonly AppDbContext _db;
+    private readonly IApplicationDbContext _db;
+    private readonly IPasswordHasher _hasher;
 
-    public UserAdminService(AppDbContext db)
+    public UserAdminService(IApplicationDbContext db, IPasswordHasher hasher)
     {
         _db = db;
+        _hasher = hasher;
     }
 
     public async Task<AssignRoleResult> AssignRoleAsync(Guid userId, string roleName, CancellationToken ct)
@@ -69,7 +69,7 @@ public sealed class UserAdminService : IUserAdminService
         if (user is null)
             return ResetPasswordResult.NotFound;
 
-        user.PasswordHash = BCryptNet.HashPassword(newPassword);
+        user.PasswordHash = _hasher.HashPassword(newPassword);
         await _db.SaveChangesAsync(ct);
 
         return ResetPasswordResult.Ok;

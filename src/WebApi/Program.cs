@@ -1,5 +1,6 @@
 using System.Text;
 using Application.Abstractions;
+using Application.Services;
 using Infrastructure.Auth;
 using Infrastructure.Persistence;
 using Infrastructure.Services;
@@ -20,6 +21,7 @@ var builder = WebApplication.CreateBuilder(args);
 var conn = builder.Configuration.GetConnectionString("DefaultConnection")
            ?? throw new InvalidOperationException("Missing ConnectionStrings:DefaultConnection");
 builder.Services.AddDbContext<AppDbContext>(opt => opt.UseNpgsql(conn));
+builder.Services.AddScoped<IApplicationDbContext>(provider => provider.GetRequiredService<AppDbContext>());
 
 // ---------------- JWT settings (bind + DI) ----------------
 var jwt = new JwtSettings();
@@ -29,6 +31,7 @@ if (string.IsNullOrWhiteSpace(jwt.Secret))
 builder.Services.AddSingleton(jwt);
 
 // ---------------- DI: services ----------------
+builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IPlanService, PlanService>();
 builder.Services.AddScoped<IScheduledService, ScheduledService>();
 builder.Services.AddScoped<IWorkoutSessionService, WorkoutSessionService>();

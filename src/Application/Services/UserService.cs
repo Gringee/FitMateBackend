@@ -1,16 +1,15 @@
 using Application.Abstractions;
 using Application.DTOs;
 using Domain.Entities;
-using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
-namespace Infrastructure.Services;
+namespace Application.Services;
 
 public class UserService : IUserService
 {
-    private readonly AppDbContext _db;
+    private readonly IApplicationDbContext _db;
 
-    public UserService(AppDbContext db)
+    public UserService(IApplicationDbContext db)
     {
         _db = db;
     }

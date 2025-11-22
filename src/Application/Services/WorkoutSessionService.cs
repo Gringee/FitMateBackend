@@ -3,18 +3,17 @@ using Application.DTOs;
 using Application.Common.Security; // Extension GetUserId()
 using Domain.Entities;
 using Domain.Enums;
-using Infrastructure.Persistence;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
-namespace Infrastructure.Services;
+namespace Application.Services;
 
 public class WorkoutSessionService : IWorkoutSessionService
 {
-    private readonly AppDbContext _db;
+    private readonly IApplicationDbContext _db;
     private readonly IHttpContextAccessor _http;
 
-    public WorkoutSessionService(AppDbContext db, IHttpContextAccessor http)
+    public WorkoutSessionService(IApplicationDbContext db, IHttpContextAccessor http)
     {
         _db = db;
         _http = http;

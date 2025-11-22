@@ -2,18 +2,17 @@
 using Application.DTOs;
 using Application.Common.Security; // Extension GetUserId()
 using Domain.Entities;
-using Infrastructure.Persistence;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
-namespace Infrastructure.Services;
+namespace Application.Services;
 
 public sealed class PlanService : IPlanService
 {
-    private readonly AppDbContext _db;
+    private readonly IApplicationDbContext _db;
     private readonly IHttpContextAccessor _http;
     
-    public PlanService(AppDbContext db, IHttpContextAccessor http) 
+    public PlanService(IApplicationDbContext db, IHttpContextAccessor http) 
     {
         _db = db;
         _http = http;

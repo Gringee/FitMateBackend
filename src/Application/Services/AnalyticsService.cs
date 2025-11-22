@@ -1,20 +1,19 @@
 using Application.Abstractions;
 using Application.DTOs.Analytics;
 using Domain.Enums; 
-using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using System.Globalization;
 using Microsoft.AspNetCore.Http;
 using Application.Common.Security;
 
-namespace Infrastructure.Services;
+namespace Application.Services;
 
 public class AnalyticsService : IAnalyticsService
 {
-    private readonly AppDbContext _db;
+    private readonly IApplicationDbContext _db;
     private readonly IHttpContextAccessor _http;
 
-    public AnalyticsService(AppDbContext db, IHttpContextAccessor http)
+    public AnalyticsService(IApplicationDbContext db, IHttpContextAccessor http)
     {
         _db = db;
         _http = http;
