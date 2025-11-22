@@ -5,16 +5,18 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Application.Services;
 
-public class UserService : IUserService
+public sealed class UserService : IUserService
 {
     private readonly IApplicationDbContext _db;
+    private readonly IUserValidationHelpers _validationHelpers;
 
-    public UserService(IApplicationDbContext db)
+    public UserService(IApplicationDbContext db, IUserValidationHelpers validationHelpers)
     {
         _db = db;
+        _validationHelpers = validationHelpers;
     }
 
-    public async Task<List<UserDto>> GetAllAsync(string? search, CancellationToken ct)
+    public async Task<IReadOnlyList<UserDto>> GetAllAsync(string? search, CancellationToken ct)
     {
         var query = _db.Users.AsNoTracking().AsQueryable();
 
@@ -44,13 +46,8 @@ public class UserService : IUserService
         var normalizedUserName = dto.UserName.Trim();
         var normalizedEmail = dto.Email.Trim().ToLowerInvariant();
         
-        var userNameExists = await _db.Users.AnyAsync(u => u.UserName == normalizedUserName, ct);
-        if (userNameExists)
-            throw new InvalidOperationException($"UserName '{normalizedUserName}' is already taken.");
-        
-        var emailExists = await _db.Users.AnyAsync(u => u.Email.ToLower() == normalizedEmail, ct);
-        if (emailExists)
-            throw new InvalidOperationException($"Email '{dto.Email}' is already in use.");
+        await _validationHelpers.EnsureUserNameIsUniqueAsync(normalizedUserName, ct);
+        await _validationHelpers.EnsureEmailIsUniqueAsync(normalizedEmail, ct);
 
         var user = new User
         {
@@ -80,16 +77,14 @@ public class UserService : IUserService
         if (!string.IsNullOrWhiteSpace(dto.UserName))
         {
             var normalized = dto.UserName.Trim();
-            var taken = await _db.Users.AnyAsync(u => u.Id != id && u.UserName == normalized, ct);
-            if (taken) throw new InvalidOperationException($"UserName '{normalized}' is already taken.");
+            await _validationHelpers.EnsureUserNameIsUniqueAsync(normalized, ct, id);
             user.UserName = normalized;
         }
 
         if (!string.IsNullOrWhiteSpace(dto.Email))
         {
             var normalized = dto.Email.Trim().ToLowerInvariant();
-            var taken = await _db.Users.AnyAsync(u => u.Id != id && u.Email.ToLower() == normalized, ct);
-            if (taken) throw new InvalidOperationException($"Email '{dto.Email}' is already in use.");
+            await _validationHelpers.EnsureEmailIsUniqueAsync(normalized, ct, id);
             user.Email = normalized;
         }
 

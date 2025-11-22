@@ -1,5 +1,10 @@
 namespace Domain.Entities;
 
+using Domain.Enums;
+
+/// <summary>
+/// Represents a friendship relationship between two users.
+/// </summary>
 public class Friendship
 {
     public Guid Id { get; set; }
@@ -9,12 +14,12 @@ public class Friendship
     
     public Guid RequestedByUserId { get; set; }
     
-    public string Status { get; set; } = "Pending"; // Pending | Accepted | Rejected
+    public RequestStatus Status { get; set; } = RequestStatus.Pending;
 
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
     public DateTime? RespondedAtUtc { get; set; }
     
-    public User? UserA { get; set; }
-    public User? UserB { get; set; }
-    public User? RequestedByUser { get; set; }
+    public User UserA { get; set; } = null!;
+    public User UserB { get; set; } = null!;
+    public User RequestedByUser { get; set; } = null!;
 }

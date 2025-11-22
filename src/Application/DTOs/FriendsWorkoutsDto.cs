@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Globalization;
+using Application.Common;
 
 namespace Application.DTOs;
 
@@ -64,12 +65,7 @@ public sealed class FriendsSessionsRangeRequest : IValidatableObject
     [Required]
     public DateTime ToUtc { get; set; }
 
-    public (DateTime From, DateTime To) NormalizeToUtc()
-    {
-        var from = FromUtc.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(FromUtc, DateTimeKind.Utc) : FromUtc.ToUniversalTime();
-        var to = ToUtc.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(ToUtc, DateTimeKind.Utc) : ToUtc.ToUniversalTime();
-        return (from, to);
-    }
+    public (DateTime From, DateTime To) NormalizeToUtc() => DateHelpers.NormalizeRange(FromUtc, ToUtc);
 
     public IEnumerable<ValidationResult> Validate(ValidationContext _)
     {

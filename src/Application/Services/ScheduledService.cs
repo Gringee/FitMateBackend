@@ -50,7 +50,7 @@ public sealed class ScheduledService : IScheduledService
             : plan.Exercises.Select(e => (
                 name: e.Name,
                 rest: e.RestSeconds,
-                sets: e.Sets.Select(s => new SetDto { Reps = s.Reps, Weight = s.Weight }).ToList()
+                sets: (IReadOnlyList<SetDto>)e.Sets.Select(s => new SetDto { Reps = s.Reps, Weight = s.Weight }).ToList()
             ));
 
         foreach (var ex in exercisesSrc)
@@ -87,7 +87,7 @@ public sealed class ScheduledService : IScheduledService
         return Map(created);
     }
 
-    public async Task<List<ScheduledDto>> GetAllAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<ScheduledDto>> GetAllAsync(CancellationToken ct = default)
     {
         var userId = UserId;
 
@@ -114,7 +114,7 @@ public sealed class ScheduledService : IScheduledService
         return s is null ? null : Map(s);
     }
 
-    public async Task<List<ScheduledDto>> GetByDateAsync(string yyyyMMdd, CancellationToken ct = default)
+    public async Task<IReadOnlyList<ScheduledDto>> GetByDateAsync(string yyyyMMdd, CancellationToken ct = default)
     {
         var userId = UserId;
 
@@ -162,7 +162,7 @@ public sealed class ScheduledService : IScheduledService
 
         bool shouldUpdateExercises = false;
 
-        IEnumerable<(string name, int rest, List<SetDto> sets)>? exercisesSrc = null;
+        IEnumerable<(string name, int rest, IReadOnlyList<SetDto> sets)>? exercisesSrc = null;
 
         if (dto.Exercises is { Count: > 0 })
         {
@@ -175,7 +175,7 @@ public sealed class ScheduledService : IScheduledService
             exercisesSrc = plan.Exercises.Select(e => (
                 e.Name, 
                 e.RestSeconds, 
-                e.Sets.Select(s => new SetDto { Reps = s.Reps, Weight = s.Weight }).ToList()
+                e.Sets.Select(s => new SetDto { Reps = s.Reps, Weight = s.Weight }).ToList() as IReadOnlyList<SetDto>
             ));
         }
 
@@ -245,6 +245,7 @@ public sealed class ScheduledService : IScheduledService
             UserId = userId,
             IsVisibleToFriends = s.IsVisibleToFriends
         };
+
         foreach (var ex in s.Exercises)
         {
             var se = new ScheduledExercise

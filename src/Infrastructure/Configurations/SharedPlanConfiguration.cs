@@ -1,4 +1,5 @@
 using Domain.Entities;
+using Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -31,7 +32,8 @@ public class SharedPlanConfiguration : IEntityTypeConfiguration<SharedPlan>
         builder.Property(x => x.Status)
             .IsRequired()
             .HasMaxLength(20)
-            .HasDefaultValue("Pending");
+            .HasConversion<string>()
+            .HasDefaultValue(RequestStatus.Pending);
 
         builder.Property(x => x.RespondedAtUtc).IsRequired(false);
     }

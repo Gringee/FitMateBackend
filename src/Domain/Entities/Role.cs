@@ -1,5 +1,8 @@
 namespace Domain.Entities;
 
+/// <summary>
+/// Represents a user role (e.g., User, Admin).
+/// </summary>
 public class Role
 {
     public Guid Id { get; set; }

@@ -8,22 +8,18 @@ using Application.Common.Security;
 
 namespace Application.Services;
 
-public class AnalyticsService : IAnalyticsService
+public sealed class AnalyticsService : IAnalyticsService
 {
     private readonly IApplicationDbContext _db;
-    private readonly IHttpContextAccessor _http;
+    private readonly ICurrentUserService _currentUserService;
 
-    public AnalyticsService(IApplicationDbContext db, IHttpContextAccessor http)
+    public AnalyticsService(IApplicationDbContext db, ICurrentUserService currentUserService)
     {
         _db = db;
-        _http = http;
+        _currentUserService = currentUserService;
     }
 
-    private Guid CurrentUserId()
-    {
-        var user = _http.HttpContext?.User ?? throw new UnauthorizedAccessException("No HttpContext/User.");
-        return user.GetUserId();
-    }
+    private Guid CurrentUserId() => _currentUserService.UserId;
 
     public async Task<OverviewDto> GetOverviewAsync(DateTime fromUtc, DateTime toUtc, CancellationToken ct)
     {

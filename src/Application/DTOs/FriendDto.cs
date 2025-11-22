@@ -12,7 +12,7 @@ public class FriendDto
     public string UserName { get; set; } = string.Empty;
 }
 
-public class FriendRequestDto
+public sealed class FriendRequestDto
 {
     [Required]
     public Guid Id { get; set; }
@@ -41,7 +41,7 @@ public class FriendRequestDto
     public DateTime? RespondedAtUtc { get; set; }
 }
 
-public class RespondFriendRequest
+public sealed class RespondFriendRequest
 {
     [Required]
     public bool Accept { get; set; }

@@ -1,7 +1,11 @@
 using System.ComponentModel.DataAnnotations;
+using Application.Common;
 
 namespace Application.DTOs.Analytics;
 
+/// <summary>
+/// Represents an overview of workout statistics.
+/// </summary>
 public class OverviewDto
 {
     public decimal TotalVolume { get; set; }
@@ -11,6 +15,9 @@ public class OverviewDto
     public int NewPrs { get; set; }
 }
 
+/// <summary>
+/// Represents a data point for volume over time.
+/// </summary>
 public class TimePointDto
 {
     public string Period { get; set; } = default!;
@@ -18,6 +25,9 @@ public class TimePointDto
     public string? ExerciseName { get; set; }
 }
 
+/// <summary>
+/// Represents a data point for estimated 1-rep max over time.
+/// </summary>
 public class E1rmPointDto
 {
     public DateOnly Day { get; set; }
@@ -25,6 +35,9 @@ public class E1rmPointDto
     public Guid? SessionId { get; set; }
 }
 
+/// <summary>
+/// Represents adherence statistics.
+/// </summary>
 public class AdherenceDto
 {
     public int Planned { get; set; }
@@ -33,6 +46,9 @@ public class AdherenceDto
     public double AdherencePct => Planned == 0 ? 0 : Math.Round((double)Completed / Planned * 100, 1);
 }
 
+/// <summary>
+/// Represents a comparison between planned and actual performance for an exercise.
+/// </summary>
 public class PlanVsActualItemDto
 {
     public string ExerciseName { get; set; } = default!;
@@ -48,7 +64,10 @@ public class PlanVsActualItemDto
     public decimal WeightDiff => (WeightDone ?? 0) - WeightPlanned;
 }
 
-public class OverviewQueryDto : IValidatableObject
+/// <summary>
+/// Query parameters for retrieving overview statistics.
+/// </summary>
+public sealed class OverviewQueryDto : IValidatableObject
 {
     [Required] public DateTime From { get; set; }
     [Required] public DateTime To { get; set; }
@@ -61,7 +80,10 @@ public class OverviewQueryDto : IValidatableObject
     public (DateTime FromUtc, DateTime ToUtc) ToUtcRange() => DateHelpers.NormalizeRange(From, To);
 }
 
-public class VolumeQueryDto : IValidatableObject
+/// <summary>
+/// Query parameters for retrieving volume statistics.
+/// </summary>
+public sealed class VolumeQueryDto : IValidatableObject
 {
     [Required] public DateTime From { get; set; }
     [Required] public DateTime To { get; set; }
@@ -81,7 +103,10 @@ public class VolumeQueryDto : IValidatableObject
     public string GroupByNormalized => GroupBy.Trim().ToLowerInvariant();
 }
 
-public class E1rmQueryDto : IValidatableObject
+/// <summary>
+/// Query parameters for retrieving estimated 1-rep max statistics.
+/// </summary>
+public sealed class E1rmQueryDto : IValidatableObject
 {
     [Required] public DateTime From { get; set; }
     [Required] public DateTime To { get; set; }
@@ -94,7 +119,10 @@ public class E1rmQueryDto : IValidatableObject
     public (DateTime FromUtc, DateTime ToUtc) ToUtcRange() => DateHelpers.NormalizeRange(From, To);
 }
 
-public class AdherenceQueryDto : IValidatableObject
+/// <summary>
+/// Query parameters for retrieving adherence statistics.
+/// </summary>
+public sealed class AdherenceQueryDto : IValidatableObject
 {
     [Required] public DateOnly FromDate { get; set; }
     [Required] public DateOnly ToDate { get; set; }
@@ -107,17 +135,10 @@ public class AdherenceQueryDto : IValidatableObject
     public (DateOnly From, DateOnly To) ToRange() => (FromDate, ToDate);
 }
 
-public class PlanVsActualQueryDto
+/// <summary>
+/// Query parameters for retrieving plan vs actual comparison.
+/// </summary>
+public sealed class PlanVsActualQueryDto
 {
     [Required] public Guid SessionId { get; set; }
-}
-
-public static class DateHelpers 
-{
-    public static (DateTime From, DateTime To) NormalizeRange(DateTime from, DateTime to)
-    {
-        var f = from.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(from, DateTimeKind.Utc) : from.ToUniversalTime();
-        var t = to.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(to, DateTimeKind.Utc) : to.ToUniversalTime();
-        return (f, t);
-    }
 }

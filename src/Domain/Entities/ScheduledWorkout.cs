@@ -2,6 +2,9 @@
 
 namespace Domain.Entities;
 
+/// <summary>
+/// Represents a scheduled workout based on a plan.
+/// </summary>
 public class ScheduledWorkout
 {
     public Guid Id { get; set; }

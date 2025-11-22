@@ -10,7 +10,10 @@ public class WorkoutSessionConfiguration : IEntityTypeConfiguration<WorkoutSessi
     {
         builder.ToTable("workout_sessions");
         builder.HasKey(x => x.Id);
-        builder.Property(x => x.Status).HasMaxLength(20).IsRequired();
+        builder.Property(x => x.Status)
+            .HasMaxLength(20)
+            .HasConversion<string>()
+            .IsRequired();
         builder.Property(x => x.SessionNotes).HasColumnType("text");
         builder.HasMany(x => x.Exercises).WithOne().HasForeignKey(x => x.WorkoutSessionId).OnDelete(DeleteBehavior.Cascade);
         builder.HasIndex(x => new { x.ScheduledId });

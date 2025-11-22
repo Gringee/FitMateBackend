@@ -2,6 +2,9 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Application.DTOs;
 
+/// <summary>
+/// Represents a set performed during a workout session.
+/// </summary>
 public class SessionSetDto
 {
     public Guid Id { get; set; }
@@ -14,6 +17,9 @@ public class SessionSetDto
     public bool? IsFailure { get; set; }
 }
 
+/// <summary>
+/// Represents an exercise performed during a workout session.
+/// </summary>
 public class SessionExerciseDto
 {
     public Guid Id { get; set; }
@@ -21,9 +27,12 @@ public class SessionExerciseDto
     public string Name { get; set; } = null!;
     public int RestSecPlanned { get; set; }
     public int? RestSecActual { get; set; }
-    public List<SessionSetDto> Sets { get; set; } = new();
+    public IReadOnlyList<SessionSetDto> Sets { get; set; } = new List<SessionSetDto>();
 }
 
+/// <summary>
+/// Represents a workout session.
+/// </summary>
 public class WorkoutSessionDto
 {
     public Guid Id { get; set; }
@@ -33,10 +42,13 @@ public class WorkoutSessionDto
     public int? DurationSec { get; set; }
     public string Status { get; set; } = null!;
     public string? SessionNotes { get; set; }
-    public List<SessionExerciseDto> Exercises { get; set; } = new();
+    public IReadOnlyList<SessionExerciseDto> Exercises { get; set; } = new List<SessionExerciseDto>();
 }
 
-public class StartSessionRequest : IValidatableObject
+/// <summary>
+/// Request to start a new workout session.
+/// </summary>
+public sealed class StartSessionRequest : IValidatableObject
 {
     [Required(ErrorMessage = "ScheduledId is required.")]
     public Guid ScheduledId { get; set; }
@@ -52,7 +64,10 @@ public class StartSessionRequest : IValidatableObject
     }
 }
 
-public class PatchSetRequest : IValidatableObject
+/// <summary>
+/// Request to update a specific set in a workout session.
+/// </summary>
+public sealed class PatchSetRequest : IValidatableObject
 {
     public int? RepsDone { get; set; }
     public decimal? WeightDone { get; set; }
@@ -72,7 +87,10 @@ public class PatchSetRequest : IValidatableObject
     }
 }
 
-public class CompleteSessionRequest : IValidatableObject
+/// <summary>
+/// Request to complete a workout session.
+/// </summary>
+public sealed class CompleteSessionRequest : IValidatableObject
 {
     [MaxLength(1000, ErrorMessage = "SessionNotes max length is 1000 chars.")]
     public string? SessionNotes { get; set; }
@@ -90,7 +108,10 @@ public class CompleteSessionRequest : IValidatableObject
     }
 }
 
-public class AbortSessionRequest
+/// <summary>
+/// Request to abort a workout session.
+/// </summary>
+public sealed class AbortSessionRequest
 {
     [MaxLength(500, ErrorMessage = "Reason max length is 500 chars.")]
     public string? Reason { get; set; }

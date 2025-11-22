@@ -5,17 +5,19 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Application.Services;
 
-public class AuthService : IAuthService
+public sealed class AuthService : IAuthService
 {
     private readonly IApplicationDbContext _db;
     private readonly ITokenService _tokens;
     private readonly IPasswordHasher _hasher;
+    private readonly IUserValidationHelpers _validationHelpers;
 
-    public AuthService(IApplicationDbContext db, ITokenService tokens, IPasswordHasher hasher)
+    public AuthService(IApplicationDbContext db, ITokenService tokens, IPasswordHasher hasher, IUserValidationHelpers validationHelpers)
     {
         _db = db;
         _tokens = tokens;
         _hasher = hasher;
+        _validationHelpers = validationHelpers;
     }
 
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request, CancellationToken ct)
@@ -23,11 +25,8 @@ public class AuthService : IAuthService
         var email = request.Email.Trim().ToLowerInvariant();
         var uname = request.UserName.Trim().ToLowerInvariant();
         
-        var existsMail  = await _db.Users.AnyAsync(u => u.Email == email, ct); 
-        if (existsMail) throw new InvalidOperationException("Email already registered.");
-        
-        var existsUserName = await _db.Users.AnyAsync(u => u.UserName == uname, ct);
-        if (existsUserName) throw new InvalidOperationException("Username already registered.");
+        await _validationHelpers.EnsureEmailIsUniqueAsync(email, ct);
+        await _validationHelpers.EnsureUserNameIsUniqueAsync(uname, ct);
 
         var user = new User
         {

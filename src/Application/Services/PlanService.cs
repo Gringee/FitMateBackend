@@ -2,6 +2,7 @@
 using Application.DTOs;
 using Application.Common.Security; // Extension GetUserId()
 using Domain.Entities;
+using Domain.Enums;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
@@ -64,7 +65,7 @@ public sealed class PlanService : IPlanService
         return await GetByIdAsync(plan.Id, ct) ?? throw new InvalidOperationException("Failed to retrieve created plan.");
     }
 
-    public async Task<List<PlanDto>> GetAllAsync(bool includeShared = false, CancellationToken ct = default)
+    public async Task<IReadOnlyList<PlanDto>> GetAllAsync(bool includeShared = false, CancellationToken ct = default)
     {
         var userId = UserId;
         
@@ -79,7 +80,7 @@ public sealed class PlanService : IPlanService
         
         var sharedPlans = await _db.SharedPlans
             .Include(sp => sp.Plan).ThenInclude(p => p.Exercises).ThenInclude(e => e.Sets)
-            .Where(sp => sp.SharedWithUserId == userId && sp.Status == "Accepted")
+            .Where(sp => sp.SharedWithUserId == userId && sp.Status == RequestStatus.Accepted)
             .Select(sp => sp.Plan)
             .AsNoTracking()
             .ToListAsync(ct);
@@ -264,13 +265,13 @@ public async Task<PlanDto?> UpdateAsync(Guid id, CreatePlanDto dto, Cancellation
         await _db.SaveChangesAsync(ct);
     }
 
-    public async Task<List<PlanDto>> GetSharedWithMeAsync(CancellationToken ct)
+    public async Task<IReadOnlyList<PlanDto>> GetSharedWithMeAsync(CancellationToken ct)
     {
         var myId = UserId;
 
         var plans = await _db.SharedPlans
             .Include(sp => sp.Plan).ThenInclude(p => p.Exercises).ThenInclude(e => e.Sets)
-            .Where(sp => sp.SharedWithUserId == myId && sp.Status == "Accepted") 
+            .Where(sp => sp.SharedWithUserId == myId && sp.Status == RequestStatus.Accepted) 
             .AsNoTracking()
             .Select(sp => sp.Plan)
             .ToListAsync(ct);
@@ -286,16 +287,16 @@ public async Task<PlanDto?> UpdateAsync(Guid id, CreatePlanDto dto, Cancellation
                          .FirstOrDefaultAsync(sp => sp.Id == sharedPlanId && sp.SharedWithUserId == userId, ct)
                      ?? throw new KeyNotFoundException("Shared plan not found.");
 
-        if (shared.Status != "Pending")
+        if (shared.Status != RequestStatus.Pending)
             throw new InvalidOperationException("This plan has already been accepted or rejected previously.");
 
-        shared.Status = accept ? "Accepted" : "Rejected";
+        shared.Status = accept ? RequestStatus.Accepted : RequestStatus.Rejected;
         shared.RespondedAtUtc = DateTime.UtcNow;
 
         await _db.SaveChangesAsync(ct);
     }
 
-    public async Task<List<SharedPlanDto>> GetPendingSharedPlansAsync(CancellationToken ct)
+    public async Task<IReadOnlyList<SharedPlanDto>> GetPendingSharedPlansAsync(CancellationToken ct)
     {
         var userId = UserId;
 
@@ -303,14 +304,14 @@ public async Task<PlanDto?> UpdateAsync(Guid id, CreatePlanDto dto, Cancellation
             .Include(sp => sp.Plan)
             .Include(sp => sp.SharedByUser)
             .Include(sp => sp.SharedWithUser)
-            .Where(sp => sp.SharedWithUserId == userId && sp.Status == "Pending")
+            .Where(sp => sp.SharedWithUserId == userId && sp.Status == RequestStatus.Pending)
             .AsNoTracking()
             .ToListAsync(ct);
 
         return shared.Select(MapShared).ToList();
     }
     
-    public async Task<List<SharedPlanDto>> GetSharedHistoryAsync(string? scope, CancellationToken ct)
+    public async Task<IReadOnlyList<SharedPlanDto>> GetSharedHistoryAsync(string? scope, CancellationToken ct)
     {
         var myId = UserId;
         
@@ -325,15 +326,15 @@ public async Task<PlanDto?> UpdateAsync(Guid id, CreatePlanDto dto, Cancellation
         switch (normalizedScope)
         {
             case "sent":
-                query = query.Where(sp => sp.SharedByUserId == myId && sp.Status != "Pending");
+                query = query.Where(sp => sp.SharedByUserId == myId && sp.Status != RequestStatus.Pending);
                 break;
 
             case "all":
-                query = query.Where(sp => (sp.SharedByUserId == myId || sp.SharedWithUserId == myId) && sp.Status != "Pending");
+                query = query.Where(sp => (sp.SharedByUserId == myId || sp.SharedWithUserId == myId) && sp.Status != RequestStatus.Pending);
                 break;
             
             default:
-                query = query.Where(sp => sp.SharedWithUserId == myId && sp.Status != "Pending");
+                query = query.Where(sp => sp.SharedWithUserId == myId && sp.Status != RequestStatus.Pending);
                 break;
         }
 
@@ -345,7 +346,7 @@ public async Task<PlanDto?> UpdateAsync(Guid id, CreatePlanDto dto, Cancellation
         return items.Select(MapShared).ToList();
     }
     
-    public async Task<List<SharedPlanDto>> GetSentPendingSharedPlansAsync(CancellationToken ct)
+    public async Task<IReadOnlyList<SharedPlanDto>> GetSentPendingSharedPlansAsync(CancellationToken ct)
     {
         var myId = UserId;
 
@@ -353,7 +354,7 @@ public async Task<PlanDto?> UpdateAsync(Guid id, CreatePlanDto dto, Cancellation
             .Include(sp => sp.Plan)
             .Include(sp => sp.SharedWithUser)
             .Include(sp => sp.SharedByUser)
-            .Where(sp => sp.SharedByUserId == myId && sp.Status == "Pending")
+            .Where(sp => sp.SharedByUserId == myId && sp.Status == RequestStatus.Pending)
             .AsNoTracking()
             .ToListAsync(ct);
 
@@ -372,7 +373,7 @@ public async Task<PlanDto?> UpdateAsync(Guid id, CreatePlanDto dto, Cancellation
 
         if (onlyIfPending)
         {
-            if (!string.Equals(sp.Status, "Pending", StringComparison.OrdinalIgnoreCase))
+            if (sp.Status != RequestStatus.Pending)
                 throw new InvalidOperationException("Only pending shared plans can be cancelled.");
         }
 
@@ -407,7 +408,7 @@ public async Task<PlanDto?> UpdateAsync(Guid id, CreatePlanDto dto, Cancellation
         SharedByName   = sp.SharedByUser.FullName ?? string.Empty,
         SharedWithName = sp.SharedWithUser.FullName ?? string.Empty,
         SharedAtUtc    = sp.SharedAtUtc,
-        Status         = sp.Status,
+        Status         = sp.Status.ToString(),
         RespondedAtUtc = sp.RespondedAtUtc
     };
 }

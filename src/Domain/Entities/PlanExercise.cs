@@ -2,6 +2,9 @@
 
 namespace Domain.Entities;
 
+/// <summary>
+/// Represents an exercise within a workout plan template.
+/// </summary>
 public class PlanExercise
 {
     public Guid Id { get; set; }

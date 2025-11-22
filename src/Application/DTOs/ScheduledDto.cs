@@ -2,6 +2,9 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Application.DTOs;
 
+/// <summary>
+/// Represents a scheduled workout.
+/// </summary>
 public class ScheduledDto
 {
     public Guid Id { get; set; }
@@ -10,12 +13,15 @@ public class ScheduledDto
     public Guid PlanId { get; set; }
     public string PlanName { get; set; } = null!;
     public string? Notes { get; set; }
-    public List<ExerciseDto> Exercises { get; set; } = new();
+    public IReadOnlyList<ExerciseDto> Exercises { get; set; } = new List<ExerciseDto>();
     public string Status { get; set; } = "planned";
     public bool VisibleToFriends { get; set; }
 }
 
-public class CreateScheduledDto
+/// <summary>
+/// Data transfer object for creating or updating a scheduled workout.
+/// </summary>
+public sealed class CreateScheduledDto
 {
     [Required]
     public DateOnly Date { get; set; }

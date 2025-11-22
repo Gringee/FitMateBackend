@@ -1,5 +1,8 @@
 namespace Domain.Entities;
 
+/// <summary>
+/// Represents a refresh token for user authentication.
+/// </summary>
 public class RefreshToken
 {
     public Guid Id { get; set; }

@@ -1,5 +1,8 @@
 namespace Domain.Entities;
 
+/// <summary>
+/// Represents the many-to-many relationship between users and roles.
+/// </summary>
 public class UserRole
 {
     public Guid UserId { get; set; }

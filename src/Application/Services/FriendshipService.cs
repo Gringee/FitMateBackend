@@ -2,12 +2,13 @@ using Application.Abstractions;
 using Application.Common.Security; // Używamy Extension Method
 using Application.DTOs;
 using Domain.Entities;
+using Domain.Enums;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace Application.Services;
 
-public class FriendshipService : IFriendshipService
+public sealed class FriendshipService : IFriendshipService
 {
     private readonly IApplicationDbContext _db;
     private readonly IHttpContextAccessor _http;
@@ -35,19 +36,19 @@ public class FriendshipService : IFriendshipService
 
         if (existing != null)
         {
-            if (existing.Status == "Accepted") throw new InvalidOperationException("You are already friends.");
-            if (existing.Status == "Pending")
+            if (existing.Status == RequestStatus.Accepted) throw new InvalidOperationException("You are already friends.");
+            if (existing.Status == RequestStatus.Pending)
             {
                 if (existing.RequestedByUserId == toUserId)
                 {
-                    existing.Status = "Accepted";
+                    existing.Status = RequestStatus.Accepted;
                     existing.RespondedAtUtc = DateTime.UtcNow;
                     await _db.SaveChangesAsync(ct);
                     return;
                 }
                 throw new InvalidOperationException("A friend request is already in progress.");
             }
-            existing.Status = "Pending";
+            existing.Status = RequestStatus.Pending;
             existing.RequestedByUserId = me;
             existing.CreatedAtUtc = DateTime.UtcNow;
             existing.RespondedAtUtc = null;
@@ -61,7 +62,7 @@ public class FriendshipService : IFriendshipService
             UserAId = a,
             UserBId = b,
             RequestedByUserId = me,
-            Status = "Pending"
+            Status = RequestStatus.Pending
         };
         _db.Friendships.Add(f);
         await _db.SaveChangesAsync(ct);
@@ -87,13 +88,13 @@ public class FriendshipService : IFriendshipService
         if (fr.UserAId != me && fr.UserBId != me) 
             throw new UnauthorizedAccessException();
 
-        if (fr.Status != "Pending") 
+        if (fr.Status != RequestStatus.Pending) 
             throw new InvalidOperationException("The friend request has already been processed.");
         
         if (fr.RequestedByUserId == me) 
             throw new InvalidOperationException("You cannot respond to your own friend request.");
 
-        fr.Status = accept ? "Accepted" : "Rejected";
+        fr.Status = accept ? RequestStatus.Accepted : RequestStatus.Rejected;
         fr.RespondedAtUtc = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
     }
@@ -103,7 +104,7 @@ public class FriendshipService : IFriendshipService
         
         var rows = await _db.Friendships
             .AsNoTracking()
-            .Where(f => f.Status == "Accepted" && (f.UserAId == me || f.UserBId == me))
+            .Where(f => f.Status == RequestStatus.Accepted && (f.UserAId == me || f.UserBId == me))
             .Select(f => new { f.UserAId, f.UserBId })
             .ToListAsync(ct);
 
@@ -135,7 +136,7 @@ public class FriendshipService : IFriendshipService
 
         var q = from f in _db.Friendships
                 join uFrom in _db.Users on f.RequestedByUserId equals uFrom.Id
-                where f.Status == "Pending"
+                where f.Status == RequestStatus.Pending
                       && (f.UserAId == me || f.UserBId == me)
                       && f.RequestedByUserId != me
                 select new FriendRequestDto
@@ -145,7 +146,7 @@ public class FriendshipService : IFriendshipService
                     FromName = uFrom.FullName ?? string.Empty,
                     ToUserId = me,
                     ToName = meName,
-                    Status = f.Status,
+                    Status = f.Status.ToString(),
                     CreatedAtUtc = f.CreatedAtUtc,
                     RespondedAtUtc = f.RespondedAtUtc
                 };
@@ -159,7 +160,7 @@ public class FriendshipService : IFriendshipService
         var meName = await GetMyNameAsync(me, ct);
 
         var q = from f in _db.Friendships
-                where f.Status == "Pending" && f.RequestedByUserId == me
+                where f.Status == RequestStatus.Pending && f.RequestedByUserId == me
                 join uTo in _db.Users on (f.UserAId == me ? f.UserBId : f.UserAId) equals uTo.Id
                 select new FriendRequestDto
                 {
@@ -168,7 +169,7 @@ public class FriendshipService : IFriendshipService
                     FromName = meName,
                     ToUserId = uTo.Id,
                     ToName = uTo.FullName ?? string.Empty,
-                    Status = f.Status,
+                    Status = f.Status.ToString(),
                     CreatedAtUtc = f.CreatedAtUtc,
                     RespondedAtUtc = f.RespondedAtUtc
                 };
@@ -182,7 +183,7 @@ public class FriendshipService : IFriendshipService
         var (a, b) = CanonicalPair(me, friendUserId);
 
         var fr = await _db.Friendships
-            .FirstOrDefaultAsync(f => f.UserAId == a && f.UserBId == b && f.Status == "Accepted", ct);
+            .FirstOrDefaultAsync(f => f.UserAId == a && f.UserBId == b && f.Status == RequestStatus.Accepted, ct);
 
         if (fr is null) return false;
 

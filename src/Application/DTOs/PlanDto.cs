@@ -2,6 +2,9 @@
 
 namespace Application.DTOs;
 
+/// <summary>
+/// Represents a set within an exercise.
+/// </summary>
 public class SetDto
 {
     [Range(1, 1000, ErrorMessage = "Reps must be between 1 and 1000.")]
@@ -11,6 +14,9 @@ public class SetDto
     public decimal Weight { get; set; }
 }
 
+/// <summary>
+/// Represents an exercise within a workout plan.
+/// </summary>
 public class ExerciseDto : IValidatableObject
 {
     [Required, StringLength(100, MinimumLength = 1, ErrorMessage = "Exercise name is required (1-100 chars).")]
@@ -18,7 +24,7 @@ public class ExerciseDto : IValidatableObject
     
     [Range(0, 3600, ErrorMessage = "Rest must be between 0 and 3600 seconds.")]
     public int Rest { get; set; } = 90;
-    public List<SetDto> Sets { get; set; } = new();
+    public IReadOnlyList<SetDto> Sets { get; set; } = new List<SetDto>();
 
     public IEnumerable<ValidationResult> Validate(ValidationContext _)
     {
@@ -33,16 +39,22 @@ public class ExerciseDto : IValidatableObject
     }
 }
 
+/// <summary>
+/// Represents a workout plan.
+/// </summary>
 public class PlanDto
 {
     public Guid Id { get; set; }
     public string PlanName { get; set; } = null!;
     public string Type { get; set; } = null!;
     public string? Notes { get; set; }
-    public List<ExerciseDto> Exercises { get; set; } = new();
+    public IReadOnlyList<ExerciseDto> Exercises { get; set; } = new List<ExerciseDto>();
 }
 
-public class CreatePlanDto : IValidatableObject
+/// <summary>
+/// Data transfer object for creating a new workout plan.
+/// </summary>
+public sealed class CreatePlanDto : IValidatableObject
 {
     [Required, StringLength(100, MinimumLength = 3, ErrorMessage = "Plan name must be 3-100 chars.")]
     public string PlanName { get; set; } = null!;

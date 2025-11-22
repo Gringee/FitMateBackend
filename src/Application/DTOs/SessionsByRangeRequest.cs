@@ -1,8 +1,9 @@
 using System.ComponentModel.DataAnnotations;
+using Application.Common;
 
 namespace Application.DTOs;
 
-public class SessionsByRangeRequest : IValidatableObject
+public sealed class SessionsByRangeRequest : IValidatableObject
 {
     [Required]
     public DateTime FromUtc { get; set; }
@@ -28,16 +29,5 @@ public class SessionsByRangeRequest : IValidatableObject
         }
     }
 
-    public (DateTime From, DateTime To) NormalizeToUtc()
-    {
-        var from = FromUtc.Kind == DateTimeKind.Unspecified
-            ? DateTime.SpecifyKind(FromUtc, DateTimeKind.Utc)
-            : FromUtc;
-
-        var to = ToUtc.Kind == DateTimeKind.Unspecified
-            ? DateTime.SpecifyKind(ToUtc, DateTimeKind.Utc)
-            : ToUtc;
-
-        return (from, to);
-    }
+    public (DateTime From, DateTime To) NormalizeToUtc() => DateHelpers.NormalizeRange(FromUtc, ToUtc);
 }

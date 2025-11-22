@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Application.Common;
 
 namespace Application.DTOs;
 
@@ -8,14 +9,14 @@ public sealed class UserProfileDto
     public string UserName { get; set; } = null!;
     public string FullName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
-    public List<string> Roles { get; set; } = new();
+    public IReadOnlyList<string> Roles { get; set; } = new List<string>();
 }
 
 public sealed class UpdateProfileRequest
 {
     [Required]
-    [StringLength(50, MinimumLength = 3)] 
-    [RegularExpression(@"^[A-Za-z0-9._-]+$", ErrorMessage = "UserName cannot contain spaces.")]
+    [StringLength(ValidationConstants.UserNameMaxLength, MinimumLength = ValidationConstants.UserNameMinLength)] 
+    [RegularExpression(ValidationConstants.UserNamePattern, ErrorMessage = ValidationConstants.UserNameErrorMessage)]
     public string UserName { get; set; } = null!;
 
     [StringLength(100)] 

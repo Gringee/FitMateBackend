@@ -1,5 +1,8 @@
 namespace Domain.Entities;
 
+/// <summary>
+/// Represents a user in the system.
+/// </summary>
 public class User
 {
     public Guid Id { get; set; }

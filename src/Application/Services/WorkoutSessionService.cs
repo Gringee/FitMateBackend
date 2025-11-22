@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Application.Services;
 
-public class WorkoutSessionService : IWorkoutSessionService
+public sealed class WorkoutSessionService : IWorkoutSessionService
 {
     private readonly IApplicationDbContext _db;
     private readonly IHttpContextAccessor _http;
@@ -36,7 +36,7 @@ public class WorkoutSessionService : IWorkoutSessionService
             Id = Guid.NewGuid(),
             ScheduledId = sch.Id,
             StartedAtUtc = DateTime.UtcNow,
-            Status = "in_progress",
+            Status = WorkoutSessionStatus.InProgress,
             UserId = userId,
             Exercises = sch.Exercises
                 .Select((e, idx) => new SessionExercise
@@ -78,7 +78,7 @@ public class WorkoutSessionService : IWorkoutSessionService
                        .FirstOrDefaultAsync(x => x.Id == sessionId && x.UserId == userId, ct) ??
                    throw new KeyNotFoundException("Session not found");
 
-        if (!string.Equals(sess.Status, "in_progress", StringComparison.OrdinalIgnoreCase))
+        if (sess.Status != WorkoutSessionStatus.InProgress)
             throw new InvalidOperationException("Session not in progress");
 
         var set = await _db.SessionExercises
@@ -106,7 +106,7 @@ public class WorkoutSessionService : IWorkoutSessionService
         var sess = await _db.WorkoutSessions.FirstOrDefaultAsync(x => x.Id == sessionId && x.UserId == userId, ct) ??
                    throw new KeyNotFoundException("Session not found");
 
-        if (!string.Equals(sess.Status, "in_progress", StringComparison.OrdinalIgnoreCase))
+        if (sess.Status != WorkoutSessionStatus.InProgress)
             throw new InvalidOperationException("Session not in progress");
 
         DateTime completedAtUtc;
@@ -127,7 +127,7 @@ public class WorkoutSessionService : IWorkoutSessionService
             completedAtUtc = req.CompletedAtUtc.Value;
         }
 
-        sess.Status = "completed";
+        sess.Status = WorkoutSessionStatus.Completed;
         sess.CompletedAtUtc = completedAtUtc;
         sess.DurationSec = (int)Math.Max(0, (sess.CompletedAtUtc.Value - sess.StartedAtUtc).TotalSeconds);
 
@@ -148,10 +148,10 @@ public class WorkoutSessionService : IWorkoutSessionService
         var sess = await _db.WorkoutSessions.FirstOrDefaultAsync(x => x.Id == sessionId && x.UserId == userId, ct) ??
                    throw new KeyNotFoundException("Session not found");
 
-        if (!string.Equals(sess.Status, "in_progress", StringComparison.OrdinalIgnoreCase))
+        if (sess.Status != WorkoutSessionStatus.InProgress)
             throw new InvalidOperationException("Session not in progress");
 
-        sess.Status = "aborted";
+        sess.Status = WorkoutSessionStatus.Aborted;
         sess.CompletedAtUtc = DateTime.UtcNow;
         sess.DurationSec = (int)Math.Max(0, (sess.CompletedAtUtc.Value - sess.StartedAtUtc).TotalSeconds);
 
@@ -195,7 +195,7 @@ public class WorkoutSessionService : IWorkoutSessionService
                    .FirstOrDefaultAsync(s => s.Id == sessionId && s.UserId == userId, ct) ??
                throw new KeyNotFoundException("Session not found");
 
-    if (!string.Equals(sess.Status, "in_progress", StringComparison.OrdinalIgnoreCase))
+    if (sess.Status != WorkoutSessionStatus.InProgress)
         throw new InvalidOperationException("Cannot add exercises to a non in-progress session.");
     
     var maxOrder = await _db.SessionExercises
@@ -257,7 +257,7 @@ public class WorkoutSessionService : IWorkoutSessionService
         StartedAtUtc = s.StartedAtUtc,
         CompletedAtUtc = s.CompletedAtUtc,
         DurationSec = s.DurationSec,
-        Status = s.Status,
+        Status = s.Status.ToString().ToLower(),
         SessionNotes = s.SessionNotes,
         Exercises = s.Exercises.OrderBy(e => e.Order)
             .Select(e => new SessionExerciseDto

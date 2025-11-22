@@ -1,7 +1,11 @@
 using System.ComponentModel.DataAnnotations;
+using Application.Common;
 
 namespace Application.DTOs;
 
+/// <summary>
+/// Represents a user in the system.
+/// </summary>
 public class UserDto
 {
     public Guid Id { get; set; }
@@ -10,7 +14,10 @@ public class UserDto
     public string UserName { get; set; } = string.Empty;
 }
 
-public class CreateUserDto
+/// <summary>
+/// Data transfer object for creating a new user.
+/// </summary>
+public sealed class CreateUserDto
 {
     [Required, StringLength(100, MinimumLength = 1)]
     public string FullName { get; set; } = string.Empty;
@@ -18,12 +25,15 @@ public class CreateUserDto
     [Required, EmailAddress, StringLength(200)]
     public string Email { get; set; } = string.Empty;
     
-    [Required, StringLength(50, MinimumLength = 3)]
-    [RegularExpression(@"^[A-Za-z0-9._-]+$", ErrorMessage = "UserName may contain only letters, digits, dot, underscore, and hyphen.")]
+    [Required, StringLength(ValidationConstants.UserNameMaxLength, MinimumLength = ValidationConstants.UserNameMinLength)]
+    [RegularExpression(ValidationConstants.UserNamePattern, ErrorMessage = ValidationConstants.UserNameErrorMessage)]
     public string UserName { get; set; } = string.Empty;
 }
 
-public class UpdateUserDto
+/// <summary>
+/// Data transfer object for updating an existing user.
+/// </summary>
+public sealed class UpdateUserDto
 {
     [StringLength(100, MinimumLength = 1)]
     public string? FullName { get; set; }
@@ -31,12 +41,15 @@ public class UpdateUserDto
     [EmailAddress, StringLength(200)]
     public string? Email { get; set; }
 
-    [StringLength(50, MinimumLength = 3)]
-    [RegularExpression(@"^[A-Za-z0-9._-]+$", ErrorMessage = "UserName may contain only letters, digits, dot, underscore, and hyphen.")]
+    [StringLength(ValidationConstants.UserNameMaxLength, MinimumLength = ValidationConstants.UserNameMinLength)]
+    [RegularExpression(ValidationConstants.UserNamePattern, ErrorMessage = ValidationConstants.UserNameErrorMessage)]
     public string? UserName { get; set; }
 }
 
-public class ResetPasswordDto
+/// <summary>
+/// Data transfer object for resetting a user's password.
+/// </summary>
+public sealed class ResetPasswordDto
 {
     [Required]
     [StringLength(100, MinimumLength = 8, ErrorMessage = "Password must be at least 8 characters long.")]

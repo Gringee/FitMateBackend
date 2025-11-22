@@ -11,7 +11,10 @@ public class FriendshipConfiguration : IEntityTypeConfiguration<Friendship>
         builder.ToTable("friendships");
         builder.HasKey(x => x.Id);
 
-        builder.Property(x => x.Status).HasMaxLength(20).IsRequired();
+        builder.Property(x => x.Status)
+            .HasMaxLength(20)
+            .HasConversion<string>()
+            .IsRequired();
         builder.Property(x => x.CreatedAtUtc).IsRequired();
         
         builder.HasIndex(x => new { x.UserAId, x.UserBId }).IsUnique();

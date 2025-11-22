@@ -94,7 +94,7 @@ public sealed class FriendWorkoutService : IFriendWorkoutService
             StartedAtUtc   = ws.StartedAtUtc,
             CompletedAtUtc = ws.CompletedAtUtc,
             DurationSec    = ws.DurationSec,
-            Status         = ws.Status
+            Status         = ws.Status.ToString().ToLower()
         }).ToList();
     }
 }

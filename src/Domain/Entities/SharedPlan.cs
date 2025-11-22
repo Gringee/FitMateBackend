@@ -1,5 +1,10 @@
 namespace Domain.Entities;
 
+using Domain.Enums;
+
+/// <summary>
+/// Represents a workout plan shared between users.
+/// </summary>
 public class SharedPlan
 {
     public Guid Id { get; set; }
@@ -15,6 +20,6 @@ public class SharedPlan
 
     public DateTime SharedAtUtc { get; set; } = DateTime.UtcNow;
     
-    public string Status { get; set; } = "Pending"; // Pending | Accepted | Rejected
+    public RequestStatus Status { get; set; } = RequestStatus.Pending;
     public DateTime? RespondedAtUtc { get; set; }
 }

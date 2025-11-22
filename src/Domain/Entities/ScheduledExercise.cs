@@ -1,5 +1,8 @@
 ﻿namespace Domain.Entities;
 
+/// <summary>
+/// Represents an exercise within a scheduled workout.
+/// </summary>
 public class ScheduledExercise
 {
     public Guid Id { get; set; }

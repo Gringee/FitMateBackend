@@ -1,5 +1,8 @@
 ﻿namespace Domain.Entities;
 
+/// <summary>
+/// Represents a set within a scheduled exercise.
+/// </summary>
 public class ScheduledSet
 {
     public Guid Id { get; set; }

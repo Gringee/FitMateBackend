@@ -1,5 +1,8 @@
 ﻿namespace Domain.Entities;
 
+/// <summary>
+/// Represents a set within a plan exercise.
+/// </summary>
 public class PlanSet
 {
     public Guid Id { get; set; }
