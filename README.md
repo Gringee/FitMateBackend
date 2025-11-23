@@ -7,7 +7,7 @@ Profesjonalne REST API do zarządzania treningami, planowania aktywności oraz a
 ## 🌟 Kluczowe Funkcjonalności
 
 ### 🔐 Bezpieczeństwo i Autoryzacja
-- **JWT Authentication** – krótkotrwałe Access Tokeny (15 min).
+- **JWT Authentication** – krótkotrwałe Access Tokeny (60 min).
 - **Refresh Token Rotation** – bezpieczna rotacja tokenów odświeżających.
 - **Password Hashing** – algorytm BCrypt.
 - **Role-Based Access Control (RBAC)** – role `User` i `Admin`.
@@ -38,7 +38,7 @@ Profesjonalne REST API do zarządzania treningami, planowania aktywności oraz a
 - **Containerization**: Docker & Docker Compose
 - **Docs**: Swagger UI (OpenAPI 3.0)
 - **Logging**: ILogger
-- **Validation**: DataAnnotations
+- **Validation**: DataAnnotations + IValidatableObject
 
 ---
 
@@ -59,14 +59,14 @@ cd FitMateBackend
 docker compose up -d --build
 ```
 
-💡 *Pierwsze uruchomienie wykona migracje bazy danych automatycznie.*
+💡 *Pierwsze uruchomienie wykona migracje bazy danych automatycznie i utworzy domyślne role (User, Admin).*
 
 ### 🌐 Dostęp do usług
 
 | Usługa           | URL                          | Opis                       |
 |------------------|------------------------------|-----------------------------|
 | API Health Check | http://localhost:8080        | Status API                 |
-| Swagger UI       | http://localhost:8080/swagger | Dokumentacja i testowanie  |
+| Swagger UI       | http://localhost:8080/swagger | Dokumentacja (tylko Development) |
 | PostgreSQL       | localhost:5433               | User: `training`, Pass: `devpass` |
 
 ---
@@ -76,9 +76,9 @@ docker compose up -d --build
 ```
 src/
 ├── Domain/              # Encje, Enumy, logika rdzeniowa (brak zależności)
-├── Application/         # Logika biznesowa: interfejsy, DTO, serwisy
-├── Infrastructure/      # EF Core, Autentykacja, implementacje serwisów
-└── WebApi/              # Kontrolery, Middleware, Swagger
+├── Application/         # Logika biznesowa: interfejsy, DTO, implementacje serwisów
+├── Infrastructure/      # EF Core, Persistence, Autentykacja (BCrypt, JWT)
+└── WebApi/              # Kontrolery, Middleware, Swagger, Converters
 ```
 
 ---
@@ -93,9 +93,13 @@ src/
 5. Kliknij **Authorize** i wklej token (Swagger doda `Bearer` sam).
 
 ### Przykładowe formaty danych
-- **Data**: `yyyy-MM-dd` → `2025-11-18`
+- **Data**: `yyyy-MM-dd` → `2026-11-18`
 - **Czas**: `HH:mm:ss` → `18:30:00`
 - **DateTime UTC**: `yyyy-MM-ddTHH:mm:ssZ`
+
+### ⚙️ Środowisko
+- **Development**: Swagger enabled, CORS AllowAnyOrigin, detailed errors
+- **Production**: Swagger disabled, CORS restricted (via AllowedOrigins), minimal error disclosure
 
 ---
 
