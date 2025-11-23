@@ -15,8 +15,6 @@ RUN dotnet publish ./src/WebApi/WebApi.csproj -c Release -o /app/publish /p:UseA
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 
-ENV ASPNETCORE_URLS=http://+:8080
-ENV DOTNET_ENVIRONMENT=Production
 
 COPY --from=build /app/publish .
 EXPOSE 8080

@@ -87,7 +87,8 @@ public class SessionsController : ControllerBase
     ///     }
     ///     
     /// </remarks>
-    /// <param name="id">Identyfikator trwającej sesji.</param>
+    /// <param name="sessionId">Identyfikator trwającej sesji.</param>
+    /// <param name="setId">Identyfikator serii.</param>
     /// <param name="req">Dane aktualizujące serię.</param>
     /// <param name="ct">Token anulowania operacji.</param>
     /// <returns>Zaktualizowany obiekt całej sesji.</returns>
@@ -240,7 +241,7 @@ public class SessionsController : ControllerBase
     /// 
     /// **Przykładowe zapytanie:**
     /// 
-    ///     GET /api/sessions/by-range?fromUtc=2023-11-01T00:00:00Z&amp;toUtc=2023-11-30T23:59:59Z
+    ///     GET /api/sessions/by-range?fromUtc=2026-11-01T00:00:00Z&amp;toUtc=2026-11-30T23:59:59Z
     ///     
     /// </remarks>
     /// <param name="query">Parametry filtrujące (FromUtc, ToUtc).</param>

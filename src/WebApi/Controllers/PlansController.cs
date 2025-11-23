@@ -57,17 +57,17 @@ public class PlansController : ControllerBase
     /// <param name="dto">Kompletny obiekt planu wraz z ćwiczeniami.</param>
     /// <param name="ct">Token anulowania operacji.</param>
     /// <returns>Utworzony plan (wraz z nadanym ID).</returns>
-    /// <response code="200">Plan został pomyślnie utworzony.</response>
+    /// <response code="201">Plan został pomyślnie utworzony.</response>
     /// <response code="400">Błąd walidacji danych wejściowych (np. pusta nazwa, brak ćwiczeń).</response>
     [HttpPost]
-    [ProducesResponseType(typeof(PlanDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PlanDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<PlanDto>> Create(
         [FromBody] CreatePlanDto dto,
         CancellationToken ct)
     {
         var result = await _svc.CreateAsync(dto, ct);
-        return Ok(result);
+        return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
     /// <summary>
@@ -85,8 +85,8 @@ public class PlansController : ControllerBase
     /// <returns>Lista planów.</returns>
     /// <response code="200">Lista planów.</response>
     [HttpGet]
-    [ProducesResponseType(typeof(List<PlanDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<List<PlanDto>>> GetAll(
+    [ProducesResponseType(typeof(IReadOnlyList<PlanDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<PlanDto>>> GetAll(
         [FromQuery] bool includeShared = false,
         CancellationToken ct = default)
     {
@@ -133,15 +133,8 @@ public class PlansController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Update(Guid id, [FromBody] CreatePlanDto dto, CancellationToken ct)
     {
-        try
-        {
-            var res = await _svc.UpdateAsync(id, dto, ct);
-            return res is not null ? Ok(res) : NotFound();
-        }
-        catch (Exception ex)
-        {
-            return Problem(detail: ex.ToString(), statusCode: 500);
-        }
+        var res = await _svc.UpdateAsync(id, dto, ct);
+        return res is not null ? Ok(res) : NotFound();
     }
 
     /// <summary>
@@ -173,15 +166,17 @@ public class PlansController : ControllerBase
     /// <param name="id">Identyfikator planu źródłowego.</param>
     /// <param name="ct">Token anulowania operacji.</param>
     /// <returns>Nowy, skopiowany obiekt planu.</returns>
-    /// <response code="200">Kopia planu została utworzona.</response>
+    /// <response code="201">Kopia planu została utworzona.</response>
     /// <response code="404">Plan źródłowy nie istnieje.</response>
     [HttpPost("{id:guid}/duplicate")]
-    [ProducesResponseType(typeof(PlanDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PlanDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Duplicate(Guid id, CancellationToken ct)
     {
         var res = await _svc.DuplicateAsync(id, ct);
-        return res is not null ? Ok(res) : NotFound();
+        if (res is null) return NotFound();
+        
+        return CreatedAtAction(nameof(GetById), new { id = res.Id }, res);
     }
 
     // --- SEKCJA SHARING (UDOSTĘPNIANIE) ---
@@ -221,8 +216,8 @@ public class PlansController : ControllerBase
     /// </remarks>
     /// <response code="200">Lista planów.</response>
     [HttpGet("shared-with-me")]
-    [ProducesResponseType(typeof(List<PlanDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<List<PlanDto>>> GetSharedWithMe(CancellationToken ct)
+    [ProducesResponseType(typeof(IReadOnlyList<PlanDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<PlanDto>>> GetSharedWithMe(CancellationToken ct)
     {
         var result = await _svc.GetSharedWithMeAsync(ct);
         return Ok(result);
@@ -236,8 +231,8 @@ public class PlansController : ControllerBase
     /// </remarks>
     /// <response code="200">Lista oczekujących udostępnień (Przychodzące).</response>
     [HttpGet("shared/pending")]
-    [ProducesResponseType(typeof(List<SharedPlanDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<List<SharedPlanDto>>> GetPendingSharedPlans(CancellationToken ct)
+    [ProducesResponseType(typeof(IReadOnlyList<SharedPlanDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<SharedPlanDto>>> GetPendingSharedPlans(CancellationToken ct)
     {
         var items = await _svc.GetPendingSharedPlansAsync(ct);
         return Ok(items);
@@ -251,8 +246,8 @@ public class PlansController : ControllerBase
     /// </remarks>
     /// <response code="200">Lista oczekujących udostępnień (Wychodzące).</response>
     [HttpGet("shared/sent/pending")]
-    [ProducesResponseType(typeof(List<SharedPlanDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<List<SharedPlanDto>>> GetSentPendingSharedPlans(CancellationToken ct)
+    [ProducesResponseType(typeof(IReadOnlyList<SharedPlanDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<SharedPlanDto>>> GetSentPendingSharedPlans(CancellationToken ct)
     {
         var items = await _svc.GetSentPendingSharedPlansAsync(ct);
         return Ok(items);
@@ -304,8 +299,8 @@ public class PlansController : ControllerBase
     /// <param name="ct">Token anulowania operacji.</param>
     /// <returns>Lista historycznych wpisów udostępnień.</returns>
     [HttpGet("shared/history")]
-    [ProducesResponseType(typeof(List<SharedPlanDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<List<SharedPlanDto>>> GetSharedHistory(
+    [ProducesResponseType(typeof(IReadOnlyList<SharedPlanDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<SharedPlanDto>>> GetSharedHistory(
         [FromQuery] string? scope,
         CancellationToken ct)
     {
@@ -335,30 +330,7 @@ public class PlansController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteSharedPlan(Guid sharedPlanId, [FromQuery] bool onlyPending = false, CancellationToken ct = default)
     {
-        try
-        {
-            await _svc.DeleteSharedPlanAsync(sharedPlanId, onlyPending, ct);
-            return NoContent();
-        }
-        catch (KeyNotFoundException)
-        {
-            return NotFound();
-        }
-        catch (InvalidOperationException ex)
-        {
-            // Np. onlyPending=true, ale status już nie jest Pending
-            return BadRequest(new { message = ex.Message });
-        }
+        await _svc.DeleteSharedPlanAsync(sharedPlanId, onlyPending, ct);
+        return NoContent();
     }
-}
-
-/// <summary>
-/// Model żądania odpowiedzi na udostępnienie planu.
-/// </summary>
-public sealed class RespondSharedPlanRequest
-{
-    /// <summary>
-    /// Decyzja: true = Akceptuj, false = Odrzuć.
-    /// </summary>
-    public bool Accept { get; set; }
 }

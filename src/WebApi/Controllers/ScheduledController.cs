@@ -39,14 +39,14 @@ public class ScheduledController : ControllerBase
     /// * Jeśli przekażesz `Exercises`, nadpiszą one domyślny zestaw z planu (pozwala to modyfikować trening tylko na ten jeden dzień).
     /// 
     /// **Formatowanie:**
-    /// * `Date`: Wymagany format **yyyy-MM-dd** (np. "2023-11-15").
-    /// * `Time`: Opcjonalny format **HH:mm** (np. "18:30").
+    /// * `Date`: Wymagany format <c>yyyy-MM-dd</c> (np. "2026-11-15").
+    /// * `Time`: Opcjonalny format <c>HH:mm</c> (np. "18:30").
     /// 
     /// **Przykładowe żądanie:**
     /// 
     ///     POST /api/scheduled
     ///     {
-    ///       "date": "2023-11-15",
+    ///       "date": "2026-11-15",
     ///       "time": "18:00",
     ///       "planId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
     ///       "status": "planned",
@@ -83,8 +83,8 @@ public class ScheduledController : ControllerBase
     /// <param name="ct">Token anulowania operacji.</param>
     /// <response code="200">Lista treningów.</response>
     [HttpGet]
-    [ProducesResponseType(typeof(List<ScheduledDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<List<ScheduledDto>>> GetAll(CancellationToken ct)
+    [ProducesResponseType(typeof(IReadOnlyList<ScheduledDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<ScheduledDto>>> GetAll(CancellationToken ct)
     {
         var items = await _svc.GetAllAsync(ct);
         return Ok(items);
@@ -114,32 +114,23 @@ public class ScheduledController : ControllerBase
     /// 
     /// **Przykładowe użycie:**
     /// 
-    ///     GET /api/scheduled/by-date?date=2023-10-25
+    ///     GET /api/scheduled/by-date?date=2026-10-25
     ///     
     /// </remarks>
-    /// <param name="date">Data w formacie **yyyy-MM-dd**.</param>
+    /// <param name="date">Data w formacie <c>yyyy-MM-dd</c>.</param>
     /// <param name="ct">Token anulowania operacji.</param>
     /// <returns>Lista treningów w danym dniu.</returns>
     /// <response code="200">Lista treningów (może być pusta).</response>
     /// <response code="400">Podano datę w nieprawidłowym formacie.</response>
     [HttpGet("by-date")]
-    [ProducesResponseType(typeof(List<ScheduledDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(IReadOnlyList<ScheduledDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<List<ScheduledDto>>> GetByDate(
+    public async Task<ActionResult<IReadOnlyList<ScheduledDto>>> GetByDate(
         [FromQuery] string date,
         CancellationToken ct)
     {
-        // DateOnly.ParseExact rzuci wyjątek formatu, jeśli string jest błędny.
-        // Wskazane jest, aby global exception handler obsłużył to jako 400.
-        try 
-        {
-            var items = await _svc.GetByDateAsync(date, ct);
-            return Ok(items);
-        }
-        catch (FormatException)
-        {
-            return BadRequest(new ProblemDetails { Title = "Invalid date format", Detail = "Use yyyy-MM-dd" });
-        }
+        var items = await _svc.GetByDateAsync(date, ct);
+        return Ok(items);
     }
 
     /// <summary>
@@ -192,20 +183,22 @@ public class ScheduledController : ControllerBase
     /// Duplikuje istniejący wpis w kalendarzu.
     /// </summary>
     /// <remarks>
-    /// Tworzy kopię zaplanowanego treningu (taka sama data, czas i ćwiczenia), ale z nowym ID.
+    /// Duplikuje zaplanowany trening (taka sama data, czas i ćwiczenia), ale z nowym ID.
     /// Przydatne np. gdy użytkownik chce zrobić ten sam trening dwa razy dziennie lub szybko skopiować ustawienia.
     /// </remarks>
     /// <param name="id">Identyfikator wpisu źródłowego.</param>
     /// <param name="ct">Token anulowania operacji.</param>
     /// <returns>Nowo utworzony obiekt (kopia).</returns>
-    /// <response code="200">Kopia została utworzona pomyślnie.</response>
+    /// <response code="201">Kopia została utworzona pomyślnie.</response>
     /// <response code="404">Wpis źródłowy nie istnieje.</response>
     [HttpPost("{id:guid}/duplicate")]
-    [ProducesResponseType(typeof(ScheduledDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ScheduledDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ScheduledDto>> Duplicate(Guid id, CancellationToken ct)
     {
         var res = await _svc.DuplicateAsync(id, ct);
-        return res is not null ? Ok(res) : NotFound();
+        if (res is null) return NotFound();
+        
+        return CreatedAtAction(nameof(GetById), new { id = res.Id }, res);
     }
 }

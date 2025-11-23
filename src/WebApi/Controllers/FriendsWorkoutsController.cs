@@ -45,7 +45,7 @@ public sealed class FriendsWorkoutsController : ControllerBase
     /// 
     /// **Przykładowe zapytanie:**
     /// 
-    ///     GET /api/friends/workouts/scheduled?from=2025-11-01&amp;to=2025-11-30
+    ///     GET /api/friends/workouts/scheduled?from=2026-11-01&amp;to=2026-11-30
     /// 
     /// </remarks>
     /// <param name="query">Parametry zakresu dat (Od - Do).</param>
@@ -82,11 +82,11 @@ public sealed class FriendsWorkoutsController : ControllerBase
     /// * Zwracane są sesje powiązane z zaplanowanymi treningami, które są publiczne dla znajomych.
     /// * Przedział czasu jest lewostronnie domknięty: <c>start &gt;= fromUtc</c> oraz <c>start &lt; toUtc</c>.
     /// 
-    /// **Wymagany format:** ISO 8601 UTC (np. <c>2025-11-01T15:30:00Z</c>).
+    /// **Wymagany format:** ISO 8601 UTC (np. <c>2026-11-01T15:30:00Z</c>).
     /// 
     /// **Przykładowe zapytanie:**
     /// 
-    ///     GET /api/friends/workouts/sessions?fromUtc=2025-11-01T00:00:00Z&amp;toUtc=2025-11-02T00:00:00Z
+    ///     GET /api/friends/workouts/sessions?fromUtc=2026-11-01T00:00:00Z&amp;toUtc=2026-11-02T00:00:00Z
     /// 
     /// </remarks>
     /// <param name="query">Parametry zakresu czasu (UTC).</param>

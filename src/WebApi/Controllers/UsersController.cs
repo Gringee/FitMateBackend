@@ -41,8 +41,8 @@ public class UsersController : ControllerBase
     /// <response code="200">Zwraca listę użytkowników (pustą, jeśli nie znaleziono pasujących).</response>
     /// <response code="401">Brak autoryzacji lub niewystarczające uprawnienia (wymagana rola Admin).</response>
     [HttpGet]
-    [ProducesResponseType(typeof(List<UserDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<List<UserDto>>> GetAll([FromQuery] string? search, CancellationToken ct)
+    [ProducesResponseType(typeof(IReadOnlyList<UserDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<UserDto>>> GetAll([FromQuery] string? search, CancellationToken ct)
     {
         var users = await _userService.GetAllAsync(search, ct);
         return Ok(users);

@@ -48,7 +48,7 @@ builder.Services.AddScoped<IUserValidationHelpers, UserValidationHelpers>();
 builder.Services.AddHttpContextAccessor();
 
 // ---------------- Controllers (bez globalnego [Authorize]) ----------------
-builder.Services.AddControllers();
+
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -139,13 +139,28 @@ builder.Services.AddAuthorization();
 var app = builder.Build();
 
 // ---------------- Swagger / Dev page ----------------
-app.UseSwagger();
-app.UseSwaggerUI(c =>
+if (app.Environment.IsDevelopment())
 {
-    c.ConfigObject.AdditionalItems["persistAuthorization"] = true;
-});
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.ConfigObject.AdditionalItems["persistAuthorization"] = true;
+    });
+}
 
-app.UseCors("DevelopmentPolicy");
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseCors("DevelopmentPolicy");
+}
+else
+{
+    app.UseCors(policy => policy
+        .WithOrigins(builder.Configuration["AllowedOrigins"]?.Split(',') ?? Array.Empty<string>())
+        .AllowAnyMethod()
+        .AllowAnyHeader()
+        .AllowCredentials());
+}
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 

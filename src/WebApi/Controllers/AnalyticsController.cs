@@ -30,7 +30,7 @@ public class AnalyticsController : ControllerBase
     /// <remarks>
     /// Zwraca podsumowanie dla zadanego okresu: całkowita objętość, średnia intensywność, liczba sesji i % realizacji planu.
     /// 
-    /// **Wymagany format dat:** ISO 8601 UTC (np. <c>2023-11-01T00:00:00Z</c>).
+    /// **Wymagany format dat:** ISO 8601 UTC (np. <c>2026-11-01T00:00:00Z</c>).
     /// </remarks>
     /// <param name="query">Parametry zakresu czasu (From, To).</param>
     /// <param name="ct">Token anulowania operacji.</param>
