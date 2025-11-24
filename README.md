@@ -25,7 +25,7 @@
 
 ```bash
 # 1. Sklonuj repozytorium
-git clone https://github.com/your-username/FitMateBackend.git
+git clone https://github.com/Gringee/FitMateBackend.git
 cd FitMateBackend
 
 # 2. Uruchom aplikację w Dockerze
