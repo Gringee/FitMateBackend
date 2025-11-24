@@ -5,11 +5,11 @@
 **Zaawansowana aplikacja backend do zarządzania treningami, analizy postępów i współpracy z przyjaciółmi**
 
 [![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791?logo=postgresql)](https://www.postgresql.org/)
-[![Tests](https://img.shields.io/badge/Tests-218%2F218_passing-success)](./docs/TEST_DOCUMENTATION.md)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql)](https://www.postgresql.org/)
+[![Tests](https://img.shields.io/badge/Tests-281%2F281_passing-success)](./docs/TEST_DOCUMENTATION.md)
 [![Coverage](https://img.shields.io/badge/Coverage-~95%25-brightgreen)]()
 
-[Dokumentacja](#dokumentacja) • [Architektura](#architektura) • [Funkcjonalności](#funkcjonalności) • [Instalacja](#instalacja)
+[Dokumentacja](#-dokumentacja) • [Architektura](#️-architektura) • [Funkcjonalności](#-funkcjonalności) • [Instalacja](#️-instalacja-i-uruchomienie)
 
 </div>
 
@@ -75,16 +75,16 @@ docker compose exec db psql -U postgres -d fitmatedb
 
 ## 📋 Spis Treści
 
-1. [Przegląd Projektu](#przegląd-projektu)
-2. [Architektura](#architektura)
-3. [Funkcjonalności](#funkcjonalności)
-4. [Technologie](#technologie)
-5. [Struktura Projektu](#struktura-projektu)
-6. [Instalacja i Uruchomienie](#instalacja-i-uruchomienie)
-7. [Testowanie](#testowanie)
-8. [Dokumentacja](#dokumentacja)
-9. [Development Workflow](#development-workflow)
-10. [Deployment](#deployment)
+1. [Przegląd Projektu](#-przegląd-projektu)
+2. [Architektura](#️-architektura)
+3. [Funkcjonalności](#-funkcjonalności)
+4. [Technologie](#-technologie)
+5. [Struktura Projektu](#-struktura-projektu)
+6. [Instalacja i Uruchomienie](#️-instalacja-i-uruchomienie)
+7. [Testowanie](#-testowanie)
+8. [Dokumentacja](#-dokumentacja)
+9. [Development Workflow](#-development-workflow)
+10. [Deployment](#-deployment)
 
 ---
 
@@ -99,7 +99,7 @@ docker compose exec db psql -U postgres -d fitmatedb
 - ✅ **JWT Authentication** - Bezpieczna autentykacja z refresh tokens
 - ✅ **PostgreSQL** - Enterprise-grade baza danych
 - ✅ **Entity Framework Core** - Code-first approach z migrations
-- ✅ **Kompleksowe Testy** - 218/218 testów passing (105 unit + 113 integration)
+- ✅ **Kompleksowe Testy** - 281/281 testów passing (166 unit + 115 integration)
 - ✅ **BCrypt** - Bezpieczne hashowanie haseł
 - ✅ **Data Annotations** - Walidacja DTOs
 - ✅ **Swagger/OpenAPI** - Interaktywna dokumentacja API
@@ -280,11 +280,11 @@ graph TD
 |-----------|-------------|
 | **Framework** | .NET 8, ASP.NET Core |
 | **Język** | C# 12 |
-| **ORM** | Entity Framework Core 8.0 |
-| **Baza Danych** | PostgreSQL 15 |
+| **ORM** | Entity Framework Core 9.0.9 |
+| **Baza Danych** | PostgreSQL 16 |
 | **Autentykacja** | JWT (System.IdentityModel.Tokens.Jwt) |
 | **Password Hashing** | BCrypt.Net-Next |
-| **Walidacja** | Data Annotations & IValidatableObject |
+| **Walidacja** | Data Annotations & Custom Attributes |
 | **Dokumentacja** | Swagger/OpenAPI (Swashbuckle) |
 | **Logging** | Microsoft.Extensions.Logging |
 
@@ -358,10 +358,10 @@ FitMateBackend/
 │       └── appsettings.json
 │
 ├── tests/
-│   ├── Application.UnitTests/        # 105 testów jednostkowych
+│   ├── Application.UnitTests/        # 166 testów jednostkowych
 │   │   └── Services/                 # Testy dla 10 serwisów
 │   │
-│   └── WebApi.IntegrationTests/      # 113 testów integracyjnych
+│   └── WebApi.IntegrationTests/      # 115 testów integracyjnych
 │       ├── Controllers/              # Testy dla 9 kontrolerów
 │       └── Common/                   # BaseIntegrationTest, Factory
 │
@@ -500,21 +500,21 @@ curl -X GET http://localhost:8080/api/plans \
 # Z root directory
 dotnet test
 
-# Rezultat: 218 passed, 0 failed, 0 skipped
+# Rezultat: 281 passed, 0 failed, 0 skipped
 ```
 
 ### Tylko Testy Jednostkowe
 
 ```bash
 dotnet test tests/Application.UnitTests
-# 105 testy, ~1 sekunda
+# 166 testów, ~500 ms
 ```
 
 ### Tylko Testy Integracyjne
 
 ```bash
 dotnet test tests/WebApi.IntegrationTests
-# 113 testów, ~22 sekundy (Testcontainers + PostgreSQL)
+# 115 testów, ~15-20 sekund (Testcontainers + PostgreSQL)
 ```
 
 ### Konkretna Klasa Testowa
@@ -533,9 +533,9 @@ dotnet test /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura
 
 | Kategoria | Liczba | Pass Rate |
 |-----------|--------|-----------|
-| **Unit Tests** | 105 | 100% ✅ |
-| **Integration Tests** | 113 | 100% ✅ |
-| **Total** | 218 | 100% ✅ |
+| **Unit Tests** | 166 | 100% ✅ |
+| **Integration Tests** | 115 | 100% ✅ |
+| **Total** | 281 | 100% ✅ |
 | **Code Coverage** | ~95% | ✅ |
 
 ---
