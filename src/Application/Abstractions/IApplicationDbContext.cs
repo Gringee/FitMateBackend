@@ -20,6 +20,7 @@ public interface IApplicationDbContext
     DbSet<RefreshToken> RefreshTokens { get; }
     DbSet<SharedPlan> SharedPlans { get; }
     DbSet<Friendship> Friendships { get; }
+    DbSet<BodyMeasurement> BodyMeasurements { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
     

@@ -23,6 +23,7 @@ namespace Infrastructure.Persistence
         public DbSet<RefreshToken> RefreshTokens { get; set; } 
         public DbSet<SharedPlan> SharedPlans => Set<SharedPlan>();
         public DbSet<Friendship> Friendships => Set<Friendship>();
+    public DbSet<BodyMeasurement> BodyMeasurements => Set<BodyMeasurement>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

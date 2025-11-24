@@ -7,7 +7,7 @@ public interface IScheduledService
     Task<ScheduledDto> CreateAsync(CreateScheduledDto dto, CancellationToken ct = default);
     Task<IReadOnlyList<ScheduledDto>> GetAllAsync(CancellationToken ct = default);
     Task<ScheduledDto?> GetByIdAsync(Guid id, CancellationToken ct = default);
-    Task<IReadOnlyList<ScheduledDto>> GetByDateAsync(string yyyyMMdd, CancellationToken ct = default);
+    Task<IReadOnlyList<ScheduledDto>> GetByDateAsync(DateOnly date, CancellationToken ct = default);
     Task<ScheduledDto?> UpdateAsync(Guid id, CreateScheduledDto dto, CancellationToken ct = default);
     Task<bool> DeleteAsync(Guid id, CancellationToken ct = default);
     Task<ScheduledDto?> DuplicateAsync(Guid id, CancellationToken ct = default);

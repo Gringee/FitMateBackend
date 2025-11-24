@@ -53,7 +53,8 @@ public sealed class UserService : IUserService
         {
             FullName = dto.FullName.Trim(),
             Email = normalizedEmail,
-            UserName = normalizedUserName
+            UserName = normalizedUserName,
+            PasswordHash = string.Empty // Admin creates without password, should be reset later
         };
 
         _db.Users.Add(user);

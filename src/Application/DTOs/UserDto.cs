@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Application.Common;
+using Application.Common.Validation;
 
 namespace Application.DTOs;
 
@@ -52,6 +53,6 @@ public sealed class UpdateUserDto
 public sealed class ResetPasswordDto
 {
     [Required]
-    [StringLength(100, MinimumLength = 8, ErrorMessage = "Password must be at least 8 characters long.")]
+    [StrongPassword]
     public string NewPassword { get; set; } = string.Empty;
 }

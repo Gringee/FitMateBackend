@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Application.Common;
+using Application.Common.Validation;
 
 namespace Application.DTOs.Auth;
 
@@ -14,9 +15,9 @@ public sealed class RegisterRequest
     public string Email { get; set; } = string.Empty;
 
     [Required]
-    [StringLength(100, MinimumLength = 8,
-        ErrorMessage = "Password must be between 8 and 100 characters.")]
+    [StrongPassword]
     public string Password { get; set; } = string.Empty;
+
 
     [Required]
     [StringLength(100,

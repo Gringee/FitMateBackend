@@ -12,4 +12,6 @@ public interface IFriendshipService
     Task<IReadOnlyList<FriendRequestDto>> GetOutgoingAsync(CancellationToken ct);
     Task<bool> RemoveFriendAsync(Guid friendUserId, CancellationToken ct);
     Task<IReadOnlyList<Guid>> GetFriendIdsAsync(CancellationToken ct);
+    Task<bool> AreFriendsAsync(Guid userId1, Guid userId2, CancellationToken ct);
+    Task<Guid?> GetFriendshipIdAsync(Guid userId1, Guid userId2, CancellationToken ct);
 }

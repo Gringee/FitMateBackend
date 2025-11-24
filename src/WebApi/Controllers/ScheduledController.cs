@@ -126,7 +126,7 @@ public class ScheduledController : ControllerBase
     [ProducesResponseType(typeof(IReadOnlyList<ScheduledDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<IReadOnlyList<ScheduledDto>>> GetByDate(
-        [FromQuery] string date,
+        [FromQuery] DateOnly date,
         CancellationToken ct)
     {
         var items = await _svc.GetByDateAsync(date, ct);

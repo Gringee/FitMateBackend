@@ -114,15 +114,10 @@ public sealed class ScheduledService : IScheduledService
         return s is null ? null : Map(s);
     }
 
-    public async Task<IReadOnlyList<ScheduledDto>> GetByDateAsync(string yyyyMMdd, CancellationToken ct = default)
+    public async Task<IReadOnlyList<ScheduledDto>> GetByDateAsync(DateOnly date, CancellationToken ct = default)
     {
         var userId = UserId;
 
-        if (!DateOnly.TryParseExact(yyyyMMdd, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
-        {
-            throw new FormatException("Invalid date format. Use yyyy-MM-dd.");
-        }
-        
         var list = await _db.ScheduledWorkouts
             .Include(s => s.Exercises).ThenInclude(e => e.Sets)
             .Where(s => s.UserId == userId && s.Date == date)

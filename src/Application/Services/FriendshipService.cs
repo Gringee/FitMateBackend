@@ -194,4 +194,19 @@ public sealed class FriendshipService : IFriendshipService
     
     private async Task<string> GetMyNameAsync(Guid me, CancellationToken ct) 
         => await _db.Users.Where(x => x.Id == me).Select(x => x.FullName ?? "").FirstOrDefaultAsync(ct) ?? "";
+
+    public async Task<bool> AreFriendsAsync(Guid userId1, Guid userId2, CancellationToken ct)
+    {
+        var (a, b) = CanonicalPair(userId1, userId2);
+        return await _db.Friendships
+            .AnyAsync(f => f.UserAId == a && f.UserBId == b && f.Status == RequestStatus.Accepted, ct);
+    }
+
+    public async Task<Guid?> GetFriendshipIdAsync(Guid userId1, Guid userId2, CancellationToken ct)
+    {
+        var (a, b) = CanonicalPair(userId1, userId2);
+        var friendship = await _db.Friendships
+            .FirstOrDefaultAsync(f => f.UserAId == a && f.UserBId == b, ct);
+        return friendship?.Id;
+    }
 }

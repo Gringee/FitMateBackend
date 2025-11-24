@@ -45,6 +45,7 @@ builder.Services.AddScoped<IFriendWorkoutService, FriendWorkoutService>();
 builder.Services.AddScoped<IUserProfileService, UserProfileService>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IUserValidationHelpers, UserValidationHelpers>();
+builder.Services.AddScoped<IBodyMetricsService, BodyMetricsService>();
 builder.Services.AddHttpContextAccessor();
 
 // ---------------- Controllers (bez globalnego [Authorize]) ----------------
