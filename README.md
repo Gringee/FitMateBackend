@@ -15,6 +15,64 @@
 
 ---
 
+## 🚀 Quick Start (Docker)
+
+### Wymagania
+- [Git](https://git-scm.com/)
+- [Docker](https://www.docker.com/) i Docker Compose
+
+### Uruchomienie
+
+```bash
+# 1. Sklonuj repozytorium
+git clone https://github.com/your-username/FitMateBackend.git
+cd FitMateBackend
+
+# 2. Uruchom aplikację w Dockerze
+docker compose up -d --build
+
+# 3. Aplikacja dostępna pod adresem:
+# - API: http://localhost:8080
+# - Swagger: http://localhost:8080/swagger
+```
+
+### Wyłączenie
+
+```bash
+# Zatrzymaj i usuń kontenery
+docker compose down
+
+# Zatrzymaj kontenery (zachowaj dane)
+docker compose stop
+```
+
+### Pomocne komendy
+
+```bash
+# Sprawdź status kontenerów
+docker compose ps
+
+# Zobacz logi aplikacji
+docker compose logs -f api
+
+# Zobacz logi bazy danych
+docker compose logs -f db
+
+# Restart aplikacji
+docker compose restart api
+
+# Usuń wszystko (włącznie z wolumenami/danymi)
+docker compose down -v
+
+# Wejdź do kontenera aplikacji
+docker compose exec api bash
+
+# Wejdź do PostgreSQL
+docker compose exec db psql -U postgres -d fitmatedb
+```
+
+---
+
 ## 📋 Spis Treści
 
 1. [Przegląd Projektu](#przegląd-projektu)
