@@ -1,5 +1,5 @@
 using Application.Abstractions;
-using Application.Common.Security; // Używamy Extension Method
+using Application.Common.Security;
 using Application.DTOs;
 using Domain.Entities;
 using Domain.Enums;

@@ -1,6 +1,7 @@
 ﻿using Application.Abstractions;
+using System.Linq;
 using Application.DTOs;
-using Application.Common.Security; // Extension GetUserId()
+using Application.Common.Security; 
 using Domain.Entities;
 using Domain.Enums;
 using Microsoft.AspNetCore.Http;
@@ -35,28 +36,9 @@ public sealed class PlanService : IPlanService
             CreatedByUserId = userId 
         };
 
-        foreach (var ex in dto.Exercises)
+        if (dto.Exercises is { Count: > 0 })
         {
-            var pe = new PlanExercise
-            {
-                Id = Guid.NewGuid(),
-                PlanId = plan.Id,
-                Name = ex.Name,
-                RestSeconds = ex.Rest
-            };
-            var i = 1;
-            foreach (var s in ex.Sets)
-            {
-                pe.Sets.Add(new PlanSet
-                {
-                    Id = Guid.NewGuid(),
-                    PlanExerciseId = pe.Id,
-                    SetNumber = i++,
-                    Reps = s.Reps,
-                    Weight = s.Weight
-                });
-            }
-            plan.Exercises.Add(pe);
+            plan.Exercises = CreateExercisesFromDto(dto.Exercises, plan.Id);
         }
 
         _db.Add(plan);
@@ -107,75 +89,59 @@ public sealed class PlanService : IPlanService
         return p is null ? null : Map(p);
     }
 
-public async Task<PlanDto?> UpdateAsync(Guid id, CreatePlanDto dto, CancellationToken ct = default)
-{
-    var userId = UserId;
-
-    using var transaction = await _db.Database.BeginTransactionAsync(ct);
-
-    try
+    public async Task<PlanDto?> UpdateAsync(Guid id, CreatePlanDto dto, CancellationToken ct = default)
     {
-        var plan = await _db.Plans
-            .FirstOrDefaultAsync(p => p.Id == id && p.CreatedByUserId == userId, ct);
+        var userId = UserId;
 
-        if (plan is null) return null;
-        
-        await _db.Database.ExecuteSqlRawAsync(
-            "DELETE FROM plan_sets WHERE \"PlanExerciseId\" IN (SELECT \"Id\" FROM plan_exercises WHERE \"PlanId\" = {0})",
-            new object[] { id }, ct);
-            
-        await _db.Database.ExecuteSqlRawAsync(
-            "DELETE FROM plan_exercises WHERE \"PlanId\" = {0}",
-            new object[] { id }, ct);
-        
-        _db.ChangeTracker.Clear();
+        using var transaction = await _db.Database.BeginTransactionAsync(ct);
 
-        _db.Plans.Attach(plan);
-        plan.PlanName = dto.PlanName;
-        plan.Type = dto.Type;
-        plan.Notes = dto.Notes;
-
-        var entry = _db.Entry(plan);
-        entry.Property(p => p.PlanName).IsModified = true;
-        entry.Property(p => p.Type).IsModified = true;
-        entry.Property(p => p.Notes).IsModified = true;
-
-        foreach (var ex in dto.Exercises)
+        try
         {
-            var pe = new PlanExercise
-            {
-                Id = Guid.NewGuid(),
-                PlanId = id, 
-                Name = ex.Name,
-                RestSeconds = ex.Rest
-            };
+            var plan = await _db.Plans
+                .FirstOrDefaultAsync(p => p.Id == id && p.CreatedByUserId == userId, ct);
 
-            var i = 1;
-            foreach (var s in ex.Sets)
+            if (plan is null) return null;
+            
+            await _db.Database.ExecuteSqlRawAsync(
+                "DELETE FROM plan_sets WHERE \"PlanExerciseId\" IN (SELECT \"Id\" FROM plan_exercises WHERE \"PlanId\" = {0})",
+                new object[] { id }, ct);
+                
+            await _db.Database.ExecuteSqlRawAsync(
+                "DELETE FROM plan_exercises WHERE \"PlanId\" = {0}",
+                new object[] { id }, ct);
+            
+            _db.ChangeTracker.Clear();
+
+            _db.Plans.Attach(plan);
+            plan.PlanName = dto.PlanName;
+            plan.Type = dto.Type;
+            plan.Notes = dto.Notes;
+
+            var entry = _db.Entry(plan);
+            entry.Property(p => p.PlanName).IsModified = true;
+            entry.Property(p => p.Type).IsModified = true;
+            entry.Property(p => p.Notes).IsModified = true;
+
+            if (dto.Exercises is { Count: > 0 })
             {
-                pe.Sets.Add(new PlanSet
+                var newExercises = CreateExercisesFromDto(dto.Exercises, id);
+                foreach (var pe in newExercises)
                 {
-                    Id = Guid.NewGuid(),
-                    PlanExerciseId = pe.Id,
-                    SetNumber = i++,
-                    Reps = s.Reps,
-                    Weight = s.Weight
-                });
+                    _db.PlanExercises.Add(pe);
+                }
             }
-            _db.PlanExercises.Add(pe);
+            
+            await _db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+            
+            return await GetByIdAsync(id, ct);
         }
-        
-        await _db.SaveChangesAsync(ct);
-        await transaction.CommitAsync(ct);
-        
-        return await GetByIdAsync(id, ct);
+        catch
+        {
+            await transaction.RollbackAsync(ct);
+            throw;
+        }
     }
-    catch
-    {
-        await transaction.RollbackAsync(ct);
-        throw;
-    }
-}
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken ct = default)
     {
@@ -207,28 +173,7 @@ public async Task<PlanDto?> UpdateAsync(Guid id, CreatePlanDto dto, Cancellation
             CreatedByUserId = userId
         };
 
-        foreach (var ex in p.Exercises)
-        {
-            var pe = new PlanExercise
-            {
-                Id = Guid.NewGuid(),
-                PlanId = copy.Id,
-                Name = ex.Name,
-                RestSeconds = ex.RestSeconds
-            };
-            foreach (var s in ex.Sets.OrderBy(s => s.SetNumber))
-            {
-                pe.Sets.Add(new PlanSet
-                {
-                    Id = Guid.NewGuid(),
-                    PlanExerciseId = pe.Id,
-                    SetNumber = s.SetNumber,
-                    Reps = s.Reps,
-                    Weight = s.Weight
-                });
-            }
-            copy.Exercises.Add(pe);
-        }
+        copy.Exercises = CreateExercisesFromPlan(p, copy.Id);
 
         _db.Add(copy);
         await _db.SaveChangesAsync(ct);
@@ -379,6 +324,66 @@ public async Task<PlanDto?> UpdateAsync(Guid id, CreatePlanDto dto, Cancellation
 
         _db.SharedPlans.Remove(sp);
         await _db.SaveChangesAsync(ct);
+    }
+
+    private static List<PlanExercise> CreateExercisesFromDto(IEnumerable<ExerciseDto> dtos, Guid planId)
+    {
+        var list = new List<PlanExercise>();
+        foreach (var ex in dtos)
+        {
+            var pe = new PlanExercise
+            {
+                Id = Guid.NewGuid(),
+                PlanId = planId,
+                Name = ex.Name,
+                RestSeconds = ex.Rest
+            };
+            var i = 1;
+            foreach (var s in ex.Sets)
+            {
+                pe.Sets.Add(new PlanSet
+                {
+                    Id = Guid.NewGuid(),
+                    PlanExerciseId = pe.Id,
+                    SetNumber = i++,
+                    Reps = s.Reps,
+                    Weight = s.Weight
+                });
+            }
+            list.Add(pe);
+        }
+        return list;
+    }
+
+    private static List<PlanExercise> CreateExercisesFromPlan(Plan sourcePlan, Guid targetPlanId)
+    {
+        var list = new List<PlanExercise>();
+        // PlanExercise does not have an Order property, so we iterate as is.
+        foreach (var ex in sourcePlan.Exercises)
+        {
+            var pe = new PlanExercise
+            {
+                Id = Guid.NewGuid(),
+                PlanId = targetPlanId,
+                Name = ex.Name,
+                RestSeconds = ex.RestSeconds
+            };
+            
+            var sortedSets = ex.Sets.OrderBy(s => s.SetNumber).ToList();
+            foreach (var s in sortedSets)
+            {
+                pe.Sets.Add(new PlanSet
+                {
+                    Id = Guid.NewGuid(),
+                    PlanExerciseId = pe.Id,
+                    SetNumber = s.SetNumber,
+                    Reps = s.Reps,
+                    Weight = s.Weight
+                });
+            }
+            list.Add(pe);
+        }
+        return list;
     }
 
     private static PlanDto Map(Plan p) => new()

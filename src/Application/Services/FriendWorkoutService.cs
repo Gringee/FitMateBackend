@@ -3,7 +3,7 @@ using Application.DTOs;
 using Domain.Enums;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
-using Application.Common.Security; // Extension
+using Application.Common.Security;
 
 namespace Application.Services;
 

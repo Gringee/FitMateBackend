@@ -1,7 +1,8 @@
 ﻿using System.Globalization;
+using System.Linq;
 using Application.Abstractions;
 using Application.DTOs;
-using Application.Common.Security; // Extension GetUserId()
+using Application.Common.Security; 
 using Domain.Entities;
 using Domain.Enums;
 using Microsoft.AspNetCore.Http;
@@ -45,36 +46,13 @@ public sealed class ScheduledService : IScheduledService
             IsVisibleToFriends = dto.VisibleToFriends
         };
 
-        var exercisesSrc = (dto.Exercises is { Count: > 0 })
-            ? dto.Exercises.Select(e => (name: e.Name, rest: e.Rest, sets: e.Sets))
-            : plan.Exercises.Select(e => (
-                name: e.Name,
-                rest: e.RestSeconds,
-                sets: (IReadOnlyList<SetDto>)e.Sets.Select(s => new SetDto { Reps = s.Reps, Weight = s.Weight }).ToList()
-            ));
-
-        foreach (var ex in exercisesSrc)
+        if (dto.Exercises is { Count: > 0 })
         {
-            var se = new ScheduledExercise
-            {
-                Id = Guid.NewGuid(),
-                ScheduledWorkoutId = sw.Id,
-                Name = ex.name,
-                RestSeconds = ex.rest
-            };
-            int i = 1;
-            foreach (var s in ex.sets)
-            {
-                se.Sets.Add(new ScheduledSet
-                {
-                    Id = Guid.NewGuid(),
-                    ScheduledExerciseId = se.Id,
-                    SetNumber = i++,
-                    Reps = s.Reps,
-                    Weight = s.Weight
-                });
-            }
-            sw.Exercises.Add(se);
+            sw.Exercises = CreateExercisesFromDto(dto.Exercises, sw.Id);
+        }
+        else
+        {
+            sw.Exercises = CreateExercisesFromPlan(plan, sw.Id);
         }
 
         _db.Add(sw);
@@ -155,52 +133,17 @@ public sealed class ScheduledService : IScheduledService
         existing.Status = ParseStatus(dto.Status);
         existing.IsVisibleToFriends = dto.VisibleToFriends;
 
-        bool shouldUpdateExercises = false;
-
-        IEnumerable<(string name, int rest, IReadOnlyList<SetDto> sets)>? exercisesSrc = null;
-
         if (dto.Exercises is { Count: > 0 })
         {
-            shouldUpdateExercises = true;
-            exercisesSrc = dto.Exercises.Select(e => (e.Name, e.Rest, e.Sets));
+            existing.Exercises.Clear();
+            var newExercises = CreateExercisesFromDto(dto.Exercises, existing.Id);
+            foreach (var ex in newExercises) existing.Exercises.Add(ex);
         }
         else if (planChanged)
         {
-            shouldUpdateExercises = true;
-            exercisesSrc = plan.Exercises.Select(e => (
-                e.Name, 
-                e.RestSeconds, 
-                e.Sets.Select(s => new SetDto { Reps = s.Reps, Weight = s.Weight }).ToList() as IReadOnlyList<SetDto>
-            ));
-        }
-
-        if (shouldUpdateExercises && exercisesSrc != null)
-        {
-            
             existing.Exercises.Clear();
-
-            foreach (var exData in exercisesSrc)
-            {
-                var newExercise = new ScheduledExercise
-                {
-                    Id = Guid.NewGuid(),
-                    Name = exData.name,
-                    RestSeconds = exData.rest
-                };
-
-                int i = 1;
-                foreach (var setData in exData.sets)
-                {
-                    newExercise.Sets.Add(new ScheduledSet
-                    {
-                        Id = Guid.NewGuid(),
-                        SetNumber = i++,
-                        Reps = setData.Reps,
-                        Weight = setData.Weight
-                    });
-                }
-                existing.Exercises.Add(newExercise);
-            }
+            var newExercises = CreateExercisesFromPlan(plan, existing.Id);
+            foreach (var ex in newExercises) existing.Exercises.Add(ex);
         }
 
         await _db.SaveChangesAsync(ct);
@@ -240,7 +183,7 @@ public sealed class ScheduledService : IScheduledService
             UserId = userId,
             IsVisibleToFriends = s.IsVisibleToFriends
         };
-
+        
         foreach (var ex in s.Exercises)
         {
             var se = new ScheduledExercise
@@ -250,7 +193,9 @@ public sealed class ScheduledService : IScheduledService
                 Name = ex.Name,
                 RestSeconds = ex.RestSeconds
             };
-            foreach (var set in ex.Sets.OrderBy(x => x.SetNumber))
+            
+            var sortedSets = ex.Sets.OrderBy(x => x.SetNumber).ToList();
+            foreach (var set in sortedSets)
             {
                 se.Sets.Add(new ScheduledSet
                 {
@@ -270,8 +215,74 @@ public sealed class ScheduledService : IScheduledService
     }
 
     private static ScheduledStatus ParseStatus(string? s)
-        => string.IsNullOrWhiteSpace(s) ? ScheduledStatus.Planned
-            : s.Trim().ToLowerInvariant() == "completed" ? ScheduledStatus.Completed : ScheduledStatus.Planned;
+    {
+        if (string.IsNullOrWhiteSpace(s)) return ScheduledStatus.Planned;
+        
+        return Enum.TryParse<ScheduledStatus>(s, true, out var status) 
+            ? status 
+            : ScheduledStatus.Planned;
+    }
+
+    private static List<ScheduledExercise> CreateExercisesFromPlan(Plan plan, Guid scheduledWorkoutId)
+    {
+        var list = new List<ScheduledExercise>();
+
+        foreach (var planEx in plan.Exercises)
+        {
+            var se = new ScheduledExercise
+            {
+                Id = Guid.NewGuid(),
+                ScheduledWorkoutId = scheduledWorkoutId,
+                Name = planEx.Name,
+                RestSeconds = planEx.RestSeconds
+            };
+
+            var sortedSets = planEx.Sets.OrderBy(s => s.SetNumber).ToList();
+            foreach (var planSet in sortedSets)
+            {
+                se.Sets.Add(new ScheduledSet
+                {
+                    Id = Guid.NewGuid(),
+                    ScheduledExerciseId = se.Id,
+                    SetNumber = planSet.SetNumber,
+                    Reps = planSet.Reps,
+                    Weight = planSet.Weight
+                });
+            }
+            list.Add(se);
+        }
+        return list;
+    }
+
+    private static List<ScheduledExercise> CreateExercisesFromDto(IEnumerable<ExerciseDto> dtos, Guid scheduledWorkoutId)
+    {
+        var list = new List<ScheduledExercise>();
+        foreach (var dto in dtos)
+        {
+            var se = new ScheduledExercise
+            {
+                Id = Guid.NewGuid(),
+                ScheduledWorkoutId = scheduledWorkoutId,
+                Name = dto.Name,
+                RestSeconds = dto.Rest
+            };
+
+            int i = 1;
+            foreach (var setDto in dto.Sets)
+            {
+                se.Sets.Add(new ScheduledSet
+                {
+                    Id = Guid.NewGuid(),
+                    ScheduledExerciseId = se.Id,
+                    SetNumber = i++,
+                    Reps = setDto.Reps,
+                    Weight = setDto.Weight
+                });
+            }
+            list.Add(se);
+        }
+        return list;
+    }
 
     private static ScheduledDto Map(ScheduledWorkout s) => new()
     {

@@ -9,9 +9,24 @@ namespace Application.DTOs;
 /// </summary>
 public class UserDto
 {
+    /// <summary>
+    /// Unique identifier of the user.
+    /// </summary>
     public Guid Id { get; set; }
+
+    /// <summary>
+    /// Full name of the user.
+    /// </summary>
     public string FullName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Email address of the user.
+    /// </summary>
     public string Email { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Unique username.
+    /// </summary>
     public string UserName { get; set; } = string.Empty;
 }
 

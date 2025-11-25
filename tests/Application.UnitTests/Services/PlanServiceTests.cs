@@ -1,7 +1,8 @@
 using Application.Abstractions;
 using Application.DTOs;
-using Application.Services;
+ using Application.Services;
 using Domain.Entities;
+using Domain.Enums;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Http;
@@ -131,7 +132,7 @@ public class PlanServiceTests
             PlanId = sharedPlan.Id,
             SharedByUserId = sharedByUser,
             SharedWithUserId = userId,
-            Status = Domain.Enums.RequestStatus.Accepted,
+            Status = global::Domain.Enums.RequestStatus.Accepted,
             SharedAtUtc = DateTime.UtcNow,
             Plan = sharedPlan
         };
@@ -307,6 +308,122 @@ public class PlanServiceTests
         copiedPlanInDb.Should().NotBeNull();
         copiedPlanInDb!.Exercises.Should().HaveCount(1);
         copiedPlanInDb.Exercises.First().Sets.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public async Task GetPendingSharedPlansAsync_ShouldReturnPendingIncomingRequests()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var otherUserId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+
+        // Create users
+        var user = new User { Id = userId, Email = "user@test.com", UserName = "user", PasswordHash = "hash", FullName = "User" };
+        var otherUser = new User { Id = otherUserId, Email = "other@test.com", UserName = "other", PasswordHash = "hash", FullName = "Other" };
+        _dbContext.Users.AddRange(user, otherUser);
+
+        // Create plan owned by other user
+        var plan = new Plan { Id = Guid.NewGuid(), CreatedByUserId = otherUserId, PlanName = "Shared Plan", Type = "PPL" };
+        _dbContext.Plans.Add(plan);
+
+        // Create pending shared plan
+        var sharedPlan = new SharedPlan
+        {
+            Id = Guid.NewGuid(),
+            PlanId = plan.Id,
+            SharedByUserId = otherUserId,
+            SharedWithUserId = userId,
+            Status = RequestStatus.Pending,
+            SharedAtUtc = DateTime.UtcNow
+        };
+        _dbContext.SharedPlans.Add(sharedPlan);
+        await _dbContext.SaveChangesAsync();
+
+        // Act
+        var result = await _sut.GetPendingSharedPlansAsync(CancellationToken.None);
+
+        // Assert
+        result.Should().HaveCount(1);
+        result.First().PlanId.Should().Be(plan.Id);
+        result.First().SharedByName.Should().Be("Other");
+    }
+
+    [Fact]
+    public async Task GetSentPendingSharedPlansAsync_ShouldReturnPendingOutgoingRequests()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var otherUserId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+
+        // Create users
+        var user = new User { Id = userId, Email = "user@test.com", UserName = "user", PasswordHash = "hash", FullName = "User" };
+        var otherUser = new User { Id = otherUserId, Email = "other@test.com", UserName = "other", PasswordHash = "hash", FullName = "Other" };
+        _dbContext.Users.AddRange(user, otherUser);
+
+        // Create plan owned by current user
+        var plan = new Plan { Id = Guid.NewGuid(), CreatedByUserId = userId, PlanName = "My Plan", Type = "PPL" };
+        _dbContext.Plans.Add(plan);
+
+        // Create pending shared plan sent by current user
+        var sharedPlan = new SharedPlan
+        {
+            Id = Guid.NewGuid(),
+            PlanId = plan.Id,
+            SharedByUserId = userId,
+            SharedWithUserId = otherUserId,
+            Status = RequestStatus.Pending,
+            SharedAtUtc = DateTime.UtcNow
+        };
+        _dbContext.SharedPlans.Add(sharedPlan);
+        await _dbContext.SaveChangesAsync();
+
+        // Act
+        var result = await _sut.GetSentPendingSharedPlansAsync(CancellationToken.None);
+
+        // Assert
+        result.Should().HaveCount(1);
+        result.First().PlanId.Should().Be(plan.Id);
+        result.First().SharedWithName.Should().Be("Other");
+    }
+
+    [Fact]
+    public async Task GetSharedWithMeAsync_ShouldReturnAcceptedSharedPlans()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var otherUserId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+
+        // Create users
+        var user = new User { Id = userId, Email = "user@test.com", UserName = "user", PasswordHash = "hash", FullName = "User" };
+        var otherUser = new User { Id = otherUserId, Email = "other@test.com", UserName = "other", PasswordHash = "hash", FullName = "Other" };
+        _dbContext.Users.AddRange(user, otherUser);
+
+        // Create plan owned by other user
+        var plan = new Plan { Id = Guid.NewGuid(), CreatedByUserId = otherUserId, PlanName = "Shared Plan", Type = "PPL" };
+        _dbContext.Plans.Add(plan);
+
+        // Create accepted shared plan
+        var sharedPlan = new SharedPlan
+        {
+            Id = Guid.NewGuid(),
+            PlanId = plan.Id,
+            SharedByUserId = otherUserId,
+            SharedWithUserId = userId,
+            Status = RequestStatus.Accepted,
+            SharedAtUtc = DateTime.UtcNow
+        };
+        _dbContext.SharedPlans.Add(sharedPlan);
+        await _dbContext.SaveChangesAsync();
+
+        // Act
+        var result = await _sut.GetSharedWithMeAsync(CancellationToken.None);
+
+        // Assert
+        result.Should().HaveCount(1);
+        result.First().PlanName.Should().Be("Shared Plan");
     }
 
     // Helper method to setup authenticated user

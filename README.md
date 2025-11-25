@@ -6,8 +6,8 @@
 
 [![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql)](https://www.postgresql.org/)
-[![Tests](https://img.shields.io/badge/Tests-281%2F281_passing-success)](./docs/TEST_DOCUMENTATION.md)
-[![Coverage](https://img.shields.io/badge/Coverage-~95%25-brightgreen)]()
+[![Tests](https://img.shields.io/badge/Tests-324%2F324_passing-success)](./docs/TEST_DOCUMENTATION.md)
+[![Coverage](https://img.shields.io/badge/Coverage-40.7%25-yellow)]()
 
 [Dokumentacja](#-dokumentacja) • [Architektura](#️-architektura) • [Funkcjonalności](#-funkcjonalności) • [Instalacja](#️-instalacja-i-uruchomienie)
 
@@ -99,7 +99,7 @@ docker compose exec db psql -U postgres -d fitmatedb
 - ✅ **JWT Authentication** - Bezpieczna autentykacja z refresh tokens
 - ✅ **PostgreSQL** - Enterprise-grade baza danych
 - ✅ **Entity Framework Core** - Code-first approach z migrations
-- ✅ **Kompleksowe Testy** - 281/281 testów passing (166 unit + 115 integration)
+- ✅ **Kompleksowe Testy** - 324/324 testów passing (206 unit + 118 integration)
 - ✅ **BCrypt** - Bezpieczne hashowanie haseł
 - ✅ **Data Annotations** - Walidacja DTOs
 - ✅ **Swagger/OpenAPI** - Interaktywna dokumentacja API
@@ -113,7 +113,7 @@ docker compose exec db psql -U postgres -d fitmatedb
 | **Serwisy** | 12 |
 | **Kontrolery** | 10 |
 | **Endpointy** | 55+ |
-| **Testy** | 223 (100% passing) |
+| **Testy** | 324 (100% passing) |
 | **Linie kodu** | ~16,000 |
 
 ---
@@ -297,7 +297,7 @@ graph TD
 | **Mocking** | Moq |
 | **In-Memory DB** | Microsoft.EntityFrameworkCore.InMemory |
 | **Integration Tests** | Testcontainers.PostgreSql |
-| **Coverage** | ~95% |
+| **Coverage** | 40.7% overall (Application: 86.5% line / 64.2% branch) |
 
 ### NuGet Packages (Kluczowe)
 
@@ -358,10 +358,10 @@ FitMateBackend/
 │       └── appsettings.json
 │
 ├── tests/
-│   ├── Application.UnitTests/        # 166 testów jednostkowych
+│   ├── Application.UnitTests/        # 206 testów jednostkowych
 │   │   └── Services/                 # Testy dla 10 serwisów
 │   │
-│   └── WebApi.IntegrationTests/      # 115 testów integracyjnych
+│   └── WebApi.IntegrationTests/      # 118 testów integracyjnych
 │       ├── Controllers/              # Testy dla 9 kontrolerów
 │       └── Common/                   # BaseIntegrationTest, Factory
 │
@@ -500,21 +500,21 @@ curl -X GET http://localhost:8080/api/plans \
 # Z root directory
 dotnet test
 
-# Rezultat: 281 passed, 0 failed, 0 skipped
+# Rezultat: 324 passed, 0 failed, 0 skipped
 ```
 
 ### Tylko Testy Jednostkowe
 
 ```bash
 dotnet test tests/Application.UnitTests
-# 166 testów, ~500 ms
+# 206 testów, ~700 ms
 ```
 
 ### Tylko Testy Integracyjne
 
 ```bash
 dotnet test tests/WebApi.IntegrationTests
-# 115 testów, ~15-20 sekund (Testcontainers + PostgreSQL)
+# 118 testów, ~16-18 sekund (Testcontainers + PostgreSQL)
 ```
 
 ### Konkretna Klasa Testowa
@@ -533,10 +533,11 @@ dotnet test /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura
 
 | Kategoria | Liczba | Pass Rate |
 |-----------|--------|-----------|
-| **Unit Tests** | 166 | 100% ✅ |
-| **Integration Tests** | 115 | 100% ✅ |
-| **Total** | 281 | 100% ✅ |
-| **Code Coverage** | ~95% | ✅ |
+| **Unit Tests** | 206 | 100% ✅ |
+| **Integration Tests** | 118 | 100% ✅ |
+| **Total** | 324 | 100% ✅ |
+| **Code Coverage (Overall)** | 40.7% | 🟡 |
+| **Application Layer Coverage** | 86.5% line / 64.2% branch | ✅ |
 
 ---
 

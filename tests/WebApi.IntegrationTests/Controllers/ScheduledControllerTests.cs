@@ -373,4 +373,87 @@ public class ScheduledControllerTests : BaseIntegrationTest
 
         return (token, plan!);
     }
+    [Fact]
+    public async Task Complete_ShouldReturn201Created_WhenRequestIsValid()
+    {
+        // Arrange
+        var (token, plan) = await SetupAuthenticatedUserWithPlanAsync();
+        Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Create scheduled workout
+        var createResponse = await Client.PostAsJsonAsync("/api/scheduled", new CreateScheduledDto
+        {
+            PlanId = plan.Id,
+            Date = DateOnly.FromDateTime(DateTime.Today),
+            Time = new TimeOnly(18, 0),
+            Status = "planned"
+        });
+        var scheduled = await createResponse.Content.ReadFromJsonAsync<ScheduledDto>();
+
+        var completeRequest = new CompleteScheduledRequest
+        {
+            StartedAtUtc = DateTime.UtcNow.AddHours(-1),
+            CompletedAtUtc = DateTime.UtcNow,
+            SessionNotes = "Completed via API",
+            PopulateActuals = true
+        };
+
+        // Act
+        var response = await Client.PostAsJsonAsync($"/api/scheduled/{scheduled!.Id}/complete", completeRequest);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        var session = await response.Content.ReadFromJsonAsync<WorkoutSessionDto>();
+        session.Should().NotBeNull();
+        session!.Status.Should().Be("completed");
+        session.SessionNotes.Should().Be("Completed via API");
+
+        // Verify scheduled status updated
+        var scheduledResponse = await Client.GetAsync($"/api/scheduled/{scheduled.Id}");
+        var updatedScheduled = await scheduledResponse.Content.ReadFromJsonAsync<ScheduledDto>();
+        updatedScheduled!.Status.Should().Be("completed");
+    }
+
+    [Fact]
+    public async Task Complete_ShouldReturn404NotFound_WhenScheduledWorkoutDoesNotExist()
+    {
+        // Arrange
+        var token = await RegisterAndGetTokenAsync();
+        Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var completeRequest = new CompleteScheduledRequest();
+
+        // Act
+        var response = await Client.PostAsJsonAsync($"/api/scheduled/{Guid.NewGuid()}/complete", completeRequest);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Complete_ShouldReturn400BadRequest_WhenWorkoutAlreadyCompleted()
+    {
+        // Arrange
+        var (token, plan) = await SetupAuthenticatedUserWithPlanAsync();
+        Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Create scheduled workout
+        var createResponse = await Client.PostAsJsonAsync("/api/scheduled", new CreateScheduledDto
+        {
+            PlanId = plan.Id,
+            Date = DateOnly.FromDateTime(DateTime.Today),
+            Time = new TimeOnly(18, 0),
+            Status = "planned"
+        });
+        var scheduled = await createResponse.Content.ReadFromJsonAsync<ScheduledDto>();
+
+        // Complete it once
+        await Client.PostAsJsonAsync($"/api/scheduled/{scheduled!.Id}/complete", new CompleteScheduledRequest());
+
+        // Act - Try to complete again
+        var response = await Client.PostAsJsonAsync($"/api/scheduled/{scheduled.Id}/complete", new CompleteScheduledRequest());
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
 }

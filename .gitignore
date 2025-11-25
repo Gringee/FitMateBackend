@@ -9,3 +9,5 @@ obj/
 *.tmp
 *.cache
 **/.DS_Store
+TestResults/
+**/TestResults/

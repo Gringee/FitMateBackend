@@ -103,6 +103,20 @@ builder.Services.AddSwaggerGen(c =>
     var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
     c.IncludeXmlComments(xmlPath);
+
+    // Include Application layer XML comments
+    var appXmlPath = Path.Combine(AppContext.BaseDirectory, "Application.xml");
+    if (File.Exists(appXmlPath))
+    {
+        c.IncludeXmlComments(appXmlPath);
+    }
+
+    // Include Domain layer XML comments
+    var domainXmlPath = Path.Combine(AppContext.BaseDirectory, "Domain.xml");
+    if (File.Exists(domainXmlPath))
+    {
+        c.IncludeXmlComments(domainXmlPath);
+    }
 });
 
 

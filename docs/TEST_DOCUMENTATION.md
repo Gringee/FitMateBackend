@@ -15,10 +15,11 @@
 ## Przegląd
 
 ### Statystyki
-- **Wszystkie testy**: 218/218 (100% ✅)
-- **Testy jednostkowe**: 105/105 (100%)
-- **Testy integracyjne**: 113/113 (100%)
-- **Pokrycie kodu**: ~95%
+- **Wszystkie testy**: 324/324 (100% ✅)
+- **Testy jednostkowe**: 206/206 (100%)
+- **Testy integracyjne**: 118/118 (100%)
+- **Pokrycie kodu (Overall)**: 40.7%
+- **Pokrycie kodu (Application)**: 86.5% line / 64.2% branch
 
 ### Technologie
 - **Framework testowy**: xUnit
@@ -112,7 +113,7 @@ dotnet test /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
 Testy jednostkowe weryfikują logikę biznesową w warstwie `Application` w izolacji od zewnętrznych zależności.
 
 ### Charakterystyka
-- ✅ Szybkie wykonanie (<1s dla wszystkich 105 testów)
+- ✅ Szybkie wykonanie (~700ms dla wszystkich 206 testów)
 - ✅ Pełna izolacja (baza InMemory, mockowane zależności)
 - ✅ Deterministyczne wyniki
 - ✅ Testują pojedyncze metody/scenariusze
@@ -766,7 +767,7 @@ reportgenerator -reports:coverage.cobertura.xml -targetdir:coveragereport
 - Wszystkie testy: < 35s
 
 ### Niezawodność
-- Pass rate: 100% (218/218 ✅)
+- Pass rate: 100% (324/324 ✅)
 - Flakiness: 0% (wszystkie deterministyczne)
 
 ---
@@ -789,9 +790,9 @@ reportgenerator -reports:coverage.cobertura.xml -targetdir:coveragereport
 ## Podsumowanie
 
 FitMateBackend posiada kompleksowy zestaw testów:
-- ✅ **218 testów** (105 jednostkowych + 113 integracyjnych)
+- ✅ **324 testów** (206 jednostkowych + 118 integracyjnych)
 - ✅ **100% pass rate**
-- ✅ **~95% code coverage**
+- ✅ **40.7% overall coverage** (86.5% Application layer)
 - ✅ **All critical paths tested**
 - ✅ **Production ready**
 

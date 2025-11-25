@@ -40,6 +40,10 @@ public class WorkoutSessionDto
     public DateTime StartedAtUtc { get; set; }
     public DateTime? CompletedAtUtc { get; set; }
     public int? DurationSec { get; set; }
+    /// <summary>
+    /// Current status of the session.
+    /// Possible values: "in_progress", "completed", "aborted".
+    /// </summary>
     public string Status { get; set; } = null!;
     public string? SessionNotes { get; set; }
     public IReadOnlyList<SessionExerciseDto> Exercises { get; set; } = new List<SessionExerciseDto>();
@@ -117,18 +121,33 @@ public sealed class AbortSessionRequest
     public string? Reason { get; set; }
 }
 
+/// <summary>
+/// Request to add a new exercise to an active workout session.
+/// </summary>
 public sealed class AddSessionExerciseRequest : IValidatableObject
 {
+    /// <summary>
+    /// Order of the exercise in the session.
+    /// </summary>
     [Range(1, int.MaxValue, ErrorMessage = "Order must be >= 1.")]
     public int? Order { get; set; }
 
+    /// <summary>
+    /// Name of the exercise.
+    /// </summary>
     [Required]
     [MaxLength(200, ErrorMessage = "Name max length is 200 chars.")]
     public string Name { get; set; } = null!;
     
+    /// <summary>
+    /// Planned rest time in seconds.
+    /// </summary>
     [Range(0, int.MaxValue, ErrorMessage = "RestSecPlanned cannot be negative.")]
     public int? RestSecPlanned { get; set; }
 
+    /// <summary>
+    /// List of sets to add for this exercise.
+    /// </summary>
     [Required]
     [MinLength(1, ErrorMessage = "At least one set is required.")]
     public List<AddSessionSetRequest> Sets { get; set; } = new();
@@ -144,14 +163,26 @@ public sealed class AddSessionExerciseRequest : IValidatableObject
     }
 }
 
+/// <summary>
+/// Request to add a set to a session exercise.
+/// </summary>
 public sealed class AddSessionSetRequest : IValidatableObject
 {
+    /// <summary>
+    /// Set number (1-based).
+    /// </summary>
     [Range(1, int.MaxValue, ErrorMessage = "SetNumber must be >= 1.")]
     public int? SetNumber { get; set; }
 
+    /// <summary>
+    /// Planned number of repetitions.
+    /// </summary>
     [Range(1, int.MaxValue, ErrorMessage = "RepsPlanned must be >= 1.")]
     public int RepsPlanned { get; set; }
 
+    /// <summary>
+    /// Planned weight.
+    /// </summary>
     [Range(0, double.MaxValue, ErrorMessage = "WeightPlanned cannot be negative.")]
     public decimal WeightPlanned { get; set; }
 

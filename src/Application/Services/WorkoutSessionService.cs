@@ -70,6 +70,86 @@ public sealed class WorkoutSessionService : IWorkoutSessionService
         return await MapDtoAsync(session.Id, ct);
     }
 
+    public async Task<WorkoutSessionDto> CreateCompletedSessionFromScheduledAsync(Guid scheduledId, CompleteScheduledRequest req, CancellationToken ct)
+    {
+        var userId = UserId;
+
+        var sch = await _db.ScheduledWorkouts
+            .Include(x => x.Exercises)
+            .ThenInclude(e => e.Sets)
+            .FirstOrDefaultAsync(x => x.Id == scheduledId && x.UserId == userId, ct)
+            ?? throw new KeyNotFoundException("Scheduled workout not found");
+
+        if (sch.Status == ScheduledStatus.Completed)
+        {
+            throw new InvalidOperationException("This workout is already completed.");
+        }
+
+        var existingSession = await _db.WorkoutSessions
+            .AnyAsync(x => x.ScheduledId == scheduledId && x.Status != WorkoutSessionStatus.Aborted, ct);
+        
+        if (existingSession)
+        {
+            throw new InvalidOperationException("Active or completed session already exists for this scheduled workout.");
+        }
+
+        var now = DateTime.UtcNow;
+        var startedAt = req.StartedAtUtc ?? now;
+        var completedAt = req.CompletedAtUtc ?? now;
+
+        if (completedAt < startedAt)
+        {
+            completedAt = startedAt;
+        }
+
+        var duration = (int)(completedAt - startedAt).TotalSeconds;
+
+        var session = new WorkoutSession
+        {
+            Id = Guid.NewGuid(),
+            ScheduledId = sch.Id,
+            UserId = userId,
+            Status = WorkoutSessionStatus.Completed,
+            StartedAtUtc = startedAt,
+            CompletedAtUtc = completedAt,
+            DurationSec = duration,
+            SessionNotes = req.SessionNotes ?? sch.Notes,
+            Exercises = sch.Exercises
+                .Select((e, idx) => new SessionExercise
+                {
+                    Id = Guid.NewGuid(),
+                    WorkoutSessionId = Guid.Empty,
+                    Order = idx + 1,
+                    Name = e.Name,
+                    RestSecPlanned = e.RestSeconds,
+                    RestSecActual = e.RestSeconds,
+                    IsAdHoc = false,
+                    ScheduledExerciseId = e.Id,
+                    Sets = e.Sets
+                        .OrderBy(s => s.SetNumber)
+                        .Select(s => new SessionSet
+                        {
+                            Id = Guid.NewGuid(),
+                            SessionExerciseId = Guid.Empty,
+                            SetNumber = s.SetNumber,
+                            RepsPlanned = s.Reps,
+                            WeightPlanned = s.Weight,
+                            RepsDone = req.PopulateActuals ? s.Reps : null,
+                            WeightDone = req.PopulateActuals ? s.Weight : null
+                        })
+                        .ToList()
+                })
+                .ToList()
+        };
+
+        sch.Status = ScheduledStatus.Completed;
+
+        _db.WorkoutSessions.Add(session);
+        await _db.SaveChangesAsync(ct);
+
+        return await MapDtoAsync(session.Id, ct);
+    }
+
     public async Task<WorkoutSessionDto> PatchSetAsync(Guid sessionId, Guid setId, PatchSetRequest req, CancellationToken ct)
     {
         var userId = UserId;

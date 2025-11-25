@@ -83,14 +83,49 @@ public sealed class CreatePlanDto : IValidatableObject
     }
 }
 
+/// <summary>
+/// Represents a workout plan shared between users.
+/// </summary>
 public class SharedPlanDto
 {
+    /// <summary>
+    /// Unique identifier of the shared plan record.
+    /// </summary>
     public Guid Id { get; set; }
+
+    /// <summary>
+    /// ID of the plan being shared.
+    /// </summary>
     public Guid PlanId { get; set; }
+
+    /// <summary>
+    /// Name of the plan.
+    /// </summary>
     public string PlanName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Name of the user who shared the plan.
+    /// </summary>
     public string SharedByName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Name of the user with whom the plan is shared.
+    /// </summary>
     public string SharedWithName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Date and time when the plan was shared.
+    /// </summary>
     public DateTime SharedAtUtc { get; set; }
+
+    /// <summary>
+    /// Status of the shared plan.
+    /// Possible values: "Pending", "Accepted", "Rejected".
+    /// </summary>
     public string Status { get; set; } = "Pending";
+
+    /// <summary>
+    /// Date and time when the recipient responded to the share request.
+    /// </summary>
     public DateTime? RespondedAtUtc { get; set; }
 }

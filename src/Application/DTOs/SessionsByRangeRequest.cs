@@ -3,11 +3,20 @@ using Application.Common;
 
 namespace Application.DTOs;
 
+/// <summary>
+/// Request to retrieve workout sessions within a date range.
+/// </summary>
 public sealed class SessionsByRangeRequest : IValidatableObject
 {
+    /// <summary>
+    /// Start date and time of the range (UTC).
+    /// </summary>
     [Required]
     public DateTime FromUtc { get; set; }
 
+    /// <summary>
+    /// End date and time of the range (UTC).
+    /// </summary>
     [Required]
     public DateTime ToUtc { get; set; }
 

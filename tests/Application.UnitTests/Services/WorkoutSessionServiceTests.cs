@@ -512,4 +512,189 @@ public class WorkoutSessionServiceTests
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("Session not in progress");
     }
+    [Fact]
+    public async Task CreateCompletedSessionFromScheduledAsync_ShouldCreateSession_WhenValidRequest()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+
+        var plan = new Plan { Id = Guid.NewGuid(), PlanName = "Plan", Type = "PPL", CreatedByUserId = userId };
+        var scheduled = new ScheduledWorkout
+        {
+            Id = Guid.NewGuid(),
+            PlanId = plan.Id,
+            UserId = userId,
+            Date = DateOnly.FromDateTime(DateTime.Today),
+            Time = new TimeOnly(18, 0),
+            Status = ScheduledStatus.Planned,
+            PlanName = "Plan",
+            Plan = plan
+        };
+
+        var exercise = new ScheduledExercise
+        {
+            Id = Guid.NewGuid(),
+            ScheduledWorkoutId = scheduled.Id,
+            Name = "Squat",
+            RestSeconds = 180
+        };
+        exercise.Sets.Add(new ScheduledSet { Id = Guid.NewGuid(), ScheduledExerciseId = exercise.Id, SetNumber = 1, Reps = 5, Weight = 100 });
+        scheduled.Exercises.Add(exercise);
+
+        await _dbContext.Plans.AddAsync(plan);
+        await _dbContext.ScheduledWorkouts.AddAsync(scheduled);
+        await _dbContext.SaveChangesAsync();
+
+        var request = new CompleteScheduledRequest
+        {
+            StartedAtUtc = DateTime.UtcNow.AddHours(-1),
+            CompletedAtUtc = DateTime.UtcNow,
+            SessionNotes = "Done quickly",
+            PopulateActuals = true
+        };
+
+        // Act
+        var result = await _sut.CreateCompletedSessionFromScheduledAsync(scheduled.Id, request, CancellationToken.None);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Status.Should().Be("completed");
+        result.DurationSec.Should().NotBeNull();
+        result.DurationSec!.Value.Should().BeCloseTo(3600, 5); // ~1 hour
+        result.SessionNotes.Should().Be("Done quickly");
+
+        var sessionInDb = await _dbContext.WorkoutSessions.Include(x => x.Exercises).ThenInclude(e => e.Sets).FirstOrDefaultAsync(x => x.Id == result.Id);
+        sessionInDb!.Status.Should().Be(WorkoutSessionStatus.Completed);
+        sessionInDb.Exercises.First().Sets.First().RepsDone.Should().Be(5); // Populated
+        sessionInDb.Exercises.First().Sets.First().WeightDone.Should().Be(100); // Populated
+
+        var scheduledInDb = await _dbContext.ScheduledWorkouts.FindAsync(scheduled.Id);
+        scheduledInDb!.Status.Should().Be(ScheduledStatus.Completed);
+    }
+
+    [Fact]
+    public async Task CreateCompletedSessionFromScheduledAsync_ShouldNotPopulateActuals_WhenFlagIsFalse()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+
+        var plan = new Plan { Id = Guid.NewGuid(), PlanName = "Plan", Type = "PPL", CreatedByUserId = userId };
+        var scheduled = new ScheduledWorkout
+        {
+            Id = Guid.NewGuid(),
+            PlanId = plan.Id,
+            UserId = userId,
+            Date = DateOnly.FromDateTime(DateTime.Today),
+            Status = ScheduledStatus.Planned,
+            PlanName = "Plan",
+            Plan = plan
+        };
+
+        var exercise = new ScheduledExercise { Id = Guid.NewGuid(), ScheduledWorkoutId = scheduled.Id, Name = "Squat" };
+        exercise.Sets.Add(new ScheduledSet { Id = Guid.NewGuid(), ScheduledExerciseId = exercise.Id, SetNumber = 1, Reps = 5, Weight = 100 });
+        scheduled.Exercises.Add(exercise);
+
+        await _dbContext.Plans.AddAsync(plan);
+        await _dbContext.ScheduledWorkouts.AddAsync(scheduled);
+        await _dbContext.SaveChangesAsync();
+
+        var request = new CompleteScheduledRequest { PopulateActuals = false };
+
+        // Act
+        var result = await _sut.CreateCompletedSessionFromScheduledAsync(scheduled.Id, request, CancellationToken.None);
+
+        // Assert
+        var sessionInDb = await _dbContext.WorkoutSessions.Include(x => x.Exercises).ThenInclude(e => e.Sets).FirstOrDefaultAsync(x => x.Id == result.Id);
+        sessionInDb!.Exercises.First().Sets.First().RepsDone.Should().BeNull();
+        sessionInDb.Exercises.First().Sets.First().WeightDone.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateCompletedSessionFromScheduledAsync_ShouldThrowKeyNotFound_WhenScheduledWorkoutNotFound()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+        var request = new CompleteScheduledRequest();
+
+        // Act
+        Func<Task> act = async () => await _sut.CreateCompletedSessionFromScheduledAsync(Guid.NewGuid(), request, CancellationToken.None);
+
+        // Assert
+        await act.Should().ThrowAsync<KeyNotFoundException>().WithMessage("Scheduled workout not found");
+    }
+
+    [Fact]
+    public async Task CreateCompletedSessionFromScheduledAsync_ShouldThrowInvalidOperation_WhenAlreadyCompleted()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+
+        var plan = new Plan { Id = Guid.NewGuid(), PlanName = "Plan", Type = "PPL", CreatedByUserId = userId };
+        var scheduled = new ScheduledWorkout
+        {
+            Id = Guid.NewGuid(),
+            PlanId = plan.Id,
+            UserId = userId,
+            Status = ScheduledStatus.Completed, // Already completed
+            PlanName = "Plan",
+            Plan = plan
+        };
+
+        await _dbContext.Plans.AddAsync(plan);
+        await _dbContext.ScheduledWorkouts.AddAsync(scheduled);
+        await _dbContext.SaveChangesAsync();
+
+        var request = new CompleteScheduledRequest();
+
+        // Act
+        Func<Task> act = async () => await _sut.CreateCompletedSessionFromScheduledAsync(scheduled.Id, request, CancellationToken.None);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("This workout is already completed.");
+    }
+
+    [Fact]
+    public async Task CreateCompletedSessionFromScheduledAsync_ShouldThrowInvalidOperation_WhenSessionAlreadyExists()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+
+        var plan = new Plan { Id = Guid.NewGuid(), PlanName = "Plan", Type = "PPL", CreatedByUserId = userId };
+        var scheduled = new ScheduledWorkout
+        {
+            Id = Guid.NewGuid(),
+            PlanId = plan.Id,
+            UserId = userId,
+            Status = ScheduledStatus.Planned,
+            PlanName = "Plan",
+            Plan = plan
+        };
+
+        // Create an existing session linked to this scheduled workout
+        var session = new WorkoutSession
+        {
+            Id = Guid.NewGuid(),
+            ScheduledId = scheduled.Id,
+            UserId = userId,
+            Status = WorkoutSessionStatus.InProgress
+        };
+
+        await _dbContext.Plans.AddAsync(plan);
+        await _dbContext.ScheduledWorkouts.AddAsync(scheduled);
+        await _dbContext.WorkoutSessions.AddAsync(session);
+        await _dbContext.SaveChangesAsync();
+
+        var request = new CompleteScheduledRequest();
+
+        // Act
+        Func<Task> act = async () => await _sut.CreateCompletedSessionFromScheduledAsync(scheduled.Id, request, CancellationToken.None);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("Active or completed session already exists for this scheduled workout.");
+    }
 }

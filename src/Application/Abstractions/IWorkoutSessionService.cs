@@ -5,6 +5,7 @@ namespace Application.Abstractions;
 public interface IWorkoutSessionService
 {
     Task<WorkoutSessionDto> StartAsync(StartSessionRequest req, CancellationToken ct);
+    Task<WorkoutSessionDto> CreateCompletedSessionFromScheduledAsync(Guid scheduledId, CompleteScheduledRequest req, CancellationToken ct);
     Task<WorkoutSessionDto> PatchSetAsync(Guid sessionId, Guid setId, PatchSetRequest req, CancellationToken ct);
     Task<WorkoutSessionDto> CompleteAsync(Guid sessionId, CompleteSessionRequest req, CancellationToken ct);
     Task<WorkoutSessionDto> AbortAsync(Guid sessionId, AbortSessionRequest req, CancellationToken ct);

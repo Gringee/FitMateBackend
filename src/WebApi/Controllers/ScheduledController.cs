@@ -22,10 +22,12 @@ namespace WebApi.Controllers;
 public class ScheduledController : ControllerBase
 {
     private readonly IScheduledService _svc;
+    private readonly IWorkoutSessionService _sessionService;
 
-    public ScheduledController(IScheduledService svc)
+    public ScheduledController(IScheduledService svc, IWorkoutSessionService sessionService)
     {
         _svc = svc;
+        _sessionService = sessionService;
     }
 
     /// <summary>
@@ -192,7 +194,7 @@ public class ScheduledController : ControllerBase
     /// <response code="201">Kopia została utworzona pomyślnie.</response>
     /// <response code="404">Wpis źródłowy nie istnieje.</response>
     [HttpPost("{id:guid}/duplicate")]
-    [ProducesResponseType(typeof(ScheduledDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ScheduledDto>> Duplicate(Guid id, CancellationToken ct)
     {
@@ -200,5 +202,42 @@ public class ScheduledController : ControllerBase
         if (res is null) return NotFound();
         
         return CreatedAtAction(nameof(GetById), new { id = res.Id }, res);
+    }
+
+    /// <summary>
+    /// Przekształca zaplanowany trening w zakończoną sesję.
+    /// </summary>
+    /// <remarks>
+    /// Pozwala oznaczyć trening jako wykonany bez konieczności przechodzenia przez tryb "Live Session".
+    /// Tworzy nową sesję ze statusem `Completed` i kopiuje do niej ćwiczenia z planu.
+    /// Jeśli `populateActuals` jest ustawione na `true`, wartości planowane (ciężar, powtórzenia) są kopiowane jako wykonane.
+    /// </remarks>
+    /// <param name="id">Identyfikator zaplanowanego treningu.</param>
+    /// <param name="req">Opcjonalne parametry (czas rozpoczęcia/zakończenia, notatki).</param>
+    /// <param name="ct">Token anulowania operacji.</param>
+    /// <returns>Utworzona sesja treningowa.</returns>
+    /// <response code="201">Sesja została utworzona.</response>
+    /// <response code="400">Trening jest już zakończony lub sesja już istnieje.</response>
+    /// <response code="404">Nie znaleziono zaplanowanego treningu.</response>
+    [HttpPost("{id:guid}/complete")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<WorkoutSessionDto>> Complete(
+        Guid id, 
+        [FromBody] CompleteScheduledRequest req, 
+        CancellationToken ct)
+    {
+        // Assuming _sessionService and WorkoutSessionDto/CompleteScheduledRequest are defined elsewhere or will be added.
+        // For now, using placeholder for _sessionService and WorkoutSessionDto.
+        // This part of the code needs to be adapted to the actual service and DTOs.
+        // The original code snippet provided for 'Complete' method uses _sessionService and WorkoutSessionDto.
+        // Since the full context of these types is not provided, I'm making an assumption here.
+        // If these types are not available, this will cause a compilation error.
+        // For the purpose of this edit, I will assume they exist or will be added.
+        var session = await _sessionService.CreateCompletedSessionFromScheduledAsync(id, req, ct);
+        // Zwracamy 201 Created i link do pobrania szczegółów sesji (SessionsController.GetById)
+        // Uwaga: Link prowadzi do innego kontrolera (SessionsController), więc używamy stringa w Created
+        return Created($"/api/sessions/{session.Id}", session);
     }
 }
