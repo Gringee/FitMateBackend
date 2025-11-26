@@ -638,34 +638,35 @@ Response 200 OK:
 
 ### 8. UserProfileController
 
-**Route**: `/api/profile`  
+**Route**: `/api/userprofile`  
 **Autoryzacja**: `[Authorize]`
 
 #### Endpointy
 
 | Metoda | Endpoint | Opis |
 |--------|----------|------|
-| GET | `/me` | Mój profil |
-| PUT | `/me` | Aktualizacja profilu |
+| GET | `/` | Mój profil (z target weight & privacy) |
+| PUT | `/` | Aktualizacja profilu (FullName, Email, UserName) |
 | POST | `/change-password` | Zmiana hasła |
+| GET | `/target-weight` | Pobranie wagi docelowej |
+| PUT | `/target-weight` | Ustawienie/wyczyszczenie wagi docelowej |
+| PUT | `/biometrics-privacy` | Zmiana widoczności danych dla znajomych |
 
 ---
 
-### 9. BodyMetricsController
+### 9. BodyMeasurementsController
 
-**Route**: `/api/body-metrics`
-**Autoryzacja**: `[Authorize]`
-
-#### Endpointy
+Zarządzanie pomiarami ciała.
 
 | Metoda | Endpoint | Opis |
-|--------|----------|------|
-| POST | `/` | Dodanie nowego pomiaru |
-| GET | `/` | Historia pomiarów (z filtrowaniem dat) |
-| GET | `/latest` | Najnowszy pomiar |
-| GET | `/stats` | Statystyki (min/max waga, zmiany) |
-| GET | `/progress` | Dane do wykresów |
-| DELETE | `/{id}` | Usunięcie pomiaru |
+| :--- | :--- | :--- |
+| `POST` | `/api/body-metrics` | Dodaje nowy pomiar. |
+| `GET` | `/api/body-metrics` | Pobiera historię pomiarów. |
+| `GET` | `/api/body-metrics/latest` | Pobiera najnowszy pomiar. |
+| `GET` | `/api/body-metrics/stats` | Pobiera statystyki. |
+| `GET` | `/api/body-metrics/progress` | Pobiera dane wykresu. |
+| `DELETE` | `/api/body-metrics/{id}` | Usuwa pomiar. |
+| `GET` | `/api/body-metrics/friends/{friendId}` | Pobiera pomiary znajomego. |
 
 **Przykład: Add Measurement**
 ```http

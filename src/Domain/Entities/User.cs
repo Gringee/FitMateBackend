@@ -34,6 +34,17 @@ public class User
     /// Date and time when the user was created.
     /// </summary>
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+
+    /// <summary>
+    /// Target weight goal in kilograms.
+    /// </summary>
+    public decimal? TargetWeightKg { get; set; }
+
+    /// <summary>
+    /// Whether to share biometric data (weight, body measurements, target weight) with friends.
+    /// Default: false (private).
+    /// </summary>
+    public bool ShareBiometricsWithFriends { get; set; } = false;
     
     /// <summary>
     /// Roles assigned to the user.

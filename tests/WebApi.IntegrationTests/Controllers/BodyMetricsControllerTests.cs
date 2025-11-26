@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using Application.DTOs;
 using Application.DTOs.Auth;
 using Application.DTOs.BodyMetrics;
 using FluentAssertions;
@@ -109,6 +110,88 @@ public class BodyMetricsControllerTests : BaseIntegrationTest
         progress.Should().HaveCount(2);
         progress![0].WeightKg.Should().Be(90);
         progress[1].WeightKg.Should().Be(88);
+    }
+
+    [Fact]
+    public async Task GetFriendMetrics_ShouldReturnMetrics_WhenFriendSharesBiometrics()
+    {
+        // Arrange
+        var user1Token = await RegisterAndGetTokenAsync();
+        var user2Token = await RegisterAndGetTokenAsync();
+        
+        // User 1 enables sharing
+        Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user1Token);
+        await Client.PutAsJsonAsync("/api/userprofile/biometrics-privacy", new { ShareWithFriends = true });
+        
+        // User 1 adds measurement
+        var dto = new CreateBodyMeasurementDto(80, 180, null, null, null, null, null, null, null);
+        await Client.PostAsJsonAsync("/api/body-metrics", dto);
+
+        // Get User 1 ID
+        var profileResponse = await Client.GetAsync("/api/userprofile");
+        var profile = await profileResponse.Content.ReadFromJsonAsync<UserProfileDto>();
+        var user1Id = profile!.Id;
+
+        // Establish friendship
+        // User 2 sends request using username
+        Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user2Token);
+        await Client.PostAsync($"/api/friends/{profile!.UserName}", null);
+        
+        // User 1 accepts
+        Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user1Token);
+        var requestsResponse = await Client.GetAsync("/api/friends/requests/incoming");
+        var requests = await requestsResponse.Content.ReadFromJsonAsync<List<FriendRequestDto>>();
+        var requestId = requests!.First().Id;
+        await Client.PostAsJsonAsync($"/api/friends/requests/{requestId}/respond", new RespondFriendRequest { Accept = true });
+
+        // Act - User 2 gets User 1 metrics
+        Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user2Token);
+        var response = await Client.GetAsync($"/api/body-metrics/friends/{user1Id}");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var metrics = await response.Content.ReadFromJsonAsync<List<BodyMeasurementDto>>();
+        metrics.Should().HaveCount(1);
+        metrics!.First().WeightKg.Should().Be(80);
+    }
+
+    [Fact]
+    public async Task GetFriendMetrics_ShouldReturnEmpty_WhenFriendDoesNotShare()
+    {
+        // Arrange
+        var user1Token = await RegisterAndGetTokenAsync();
+        var user2Token = await RegisterAndGetTokenAsync();
+        
+        // User 1 keeps sharing disabled (default)
+        
+        // User 1 adds measurement
+        Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user1Token);
+        var dto = new CreateBodyMeasurementDto(80, 180, null, null, null, null, null, null, null);
+        await Client.PostAsJsonAsync("/api/body-metrics", dto);
+
+        // Get User 1 ID
+        var profileResponse = await Client.GetAsync("/api/userprofile");
+        var profile = await profileResponse.Content.ReadFromJsonAsync<UserProfileDto>();
+        var user1Id = profile!.Id;
+
+        // Establish friendship
+        Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user2Token);
+        await Client.PostAsync($"/api/friends/{profile!.UserName}", null);
+        
+        Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user1Token);
+        var requestsResponse = await Client.GetAsync("/api/friends/requests/incoming");
+        var requests = await requestsResponse.Content.ReadFromJsonAsync<List<FriendRequestDto>>();
+        var requestId = requests!.First().Id;
+        await Client.PostAsJsonAsync($"/api/friends/requests/{requestId}/respond", new RespondFriendRequest { Accept = true });
+
+        // Act - User 2 gets User 1 metrics
+        Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user2Token);
+        var response = await Client.GetAsync($"/api/body-metrics/friends/{user1Id}");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var metrics = await response.Content.ReadFromJsonAsync<List<BodyMeasurementDto>>();
+        metrics.Should().BeEmpty();
     }
 
     private async Task<string> RegisterAndGetTokenAsync()

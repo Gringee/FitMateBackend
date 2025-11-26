@@ -15,9 +15,9 @@
 ## Przegląd
 
 ### Statystyki
-- **Wszystkie testy**: 324/324 (100% ✅)
-- **Testy jednostkowe**: 206/206 (100%)
-- **Testy integracyjne**: 118/118 (100%)
+- **Wszystkie testy**: 349/349 (100% ✅)
+- **Testy jednostkowe**: 226/226 (100%)
+- **Testy integracyjne**: 123/123 (100%)
 - **Pokrycie kodu (Overall)**: 40.7%
 - **Pokrycie kodu (Application)**: 86.5% line / 64.2% branch
 
@@ -39,12 +39,14 @@ tests/
 │   ├── Services/                       # Testy serwisów
 │   │   ├── AnalyticsServiceTests.cs
 │   │   ├── AuthServiceTests.cs
+│   │   ├── BodyMetricsServiceTests.cs
 │   │   ├── FriendshipServiceTests.cs
 │   │   ├── FriendWorkoutServiceTests.cs
 │   │   ├── PlanServiceTests.cs
 │   │   ├── ScheduledServiceTests.cs
 │   │   ├── UserAdminServiceTests.cs
 │   │   ├── UserProfileServiceTests.cs
+│   │   ├── UserProfileTargetWeightTests.cs 
 │   │   ├── UserServiceTests.cs
 │   │   └── WorkoutSessionServiceTests.cs
 │   └── Application.UnitTests.csproj
@@ -56,6 +58,7 @@ tests/
     ├── Controllers/                     # Testy kontrolerów
     │   ├── AnalyticsControllerTests.cs
     │   ├── AuthControllerTests.cs
+    │   ├── BodyMetricsControllerTests.cs
     │   ├── FriendsControllerTests.cs
     │   ├── FriendsWorkoutsControllerTests.cs
     │   ├── PlansControllerTests.cs

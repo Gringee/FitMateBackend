@@ -556,6 +556,7 @@ dotnet ef migrations remove --startup-project ../WebApi
 1. `20241120_Initial` - Początkowa struktura (Users, Plans, Sessions)
 2. `20241121_AddFriendships` - Dodanie Friendship
 3. `20241122_AddSharedPlans` - Dodanie SharedPlan
+4. `20241126_AddTargetWeightAndBiometricsPrivacyToUser` - Dodanie TargetWeight i Privacy do User
 
 ### Automatyczne Migracje przy Starcie (Development)
 

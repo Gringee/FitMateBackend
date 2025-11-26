@@ -14,6 +14,7 @@ public class BodyMetricsServiceTests
 {
     private readonly AppDbContext _db;
     private readonly Mock<ICurrentUserService> _currentUserMock;
+    private readonly Mock<IFriendshipService> _friendsMock;
     private readonly BodyMetricsService _service;
     private readonly Guid _userId = Guid.NewGuid();
 
@@ -27,8 +28,10 @@ public class BodyMetricsServiceTests
         _db = new AppDbContext(options);
         _currentUserMock = new Mock<ICurrentUserService>();
         _currentUserMock.Setup(x => x.UserId).Returns(_userId);
+        
+        _friendsMock = new Mock<IFriendshipService>();
 
-        _service = new BodyMetricsService(_db, _currentUserMock.Object);
+        _service = new BodyMetricsService(_db, _currentUserMock.Object, _friendsMock.Object);
     }
 
     [Fact]
@@ -235,6 +238,93 @@ public class BodyMetricsServiceTests
 
         // Assert
         await act.Should().ThrowAsync<KeyNotFoundException>();
+    }
+
+    [Fact]
+    public async Task GetFriendMetricsAsync_ShouldReturnMetrics_WhenFriendsAndSharingEnabled()
+    {
+        // Arrange
+        var friendId = Guid.NewGuid();
+        
+        // Mock friendship
+        _friendsMock.Setup(x => x.AreFriendsAsync(_userId, friendId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        // Create friend user with sharing enabled
+        var friend = new User
+        {
+            Id = friendId,
+            UserName = "friend",
+            FullName = "Friend User",
+            Email = "friend@test.com",
+            PasswordHash = "hash",
+            ShareBiometricsWithFriends = true
+        };
+        _db.Users.Add(friend);
+
+        // Add metrics for friend
+        var measurement = new BodyMeasurement
+        {
+            Id = Guid.NewGuid(),
+            UserId = friendId,
+            MeasuredAtUtc = DateTime.UtcNow,
+            WeightKg = 80,
+            HeightCm = 180,
+            BMI = 24.69m
+        };
+        _db.BodyMeasurements.Add(measurement);
+        await _db.SaveChangesAsync();
+
+        // Act
+        var result = await _service.GetFriendMetricsAsync(friendId);
+
+        // Assert
+        result.Should().HaveCount(1);
+        result.First().WeightKg.Should().Be(80);
+    }
+
+    [Fact]
+    public async Task GetFriendMetricsAsync_ShouldThrow_WhenNotFriends()
+    {
+        // Arrange
+        var friendId = Guid.NewGuid();
+        _friendsMock.Setup(x => x.AreFriendsAsync(_userId, friendId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        // Act
+        Func<Task> act = async () => await _service.GetFriendMetricsAsync(friendId);
+
+        // Assert
+        await act.Should().ThrowAsync<KeyNotFoundException>()
+            .WithMessage("User is not your friend.");
+    }
+
+    [Fact]
+    public async Task GetFriendMetricsAsync_ShouldReturnEmpty_WhenSharingDisabled()
+    {
+        // Arrange
+        var friendId = Guid.NewGuid();
+        
+        _friendsMock.Setup(x => x.AreFriendsAsync(_userId, friendId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var friend = new User
+        {
+            Id = friendId,
+            UserName = "friend",
+            FullName = "Friend User",
+            Email = "friend@test.com",
+            PasswordHash = "hash",
+            ShareBiometricsWithFriends = false // Disabled
+        };
+        _db.Users.Add(friend);
+        await _db.SaveChangesAsync();
+
+        // Act
+        var result = await _service.GetFriendMetricsAsync(friendId);
+
+        // Assert
+        result.Should().BeEmpty();
     }
 
     private async Task SeedMeasurementsAsync()

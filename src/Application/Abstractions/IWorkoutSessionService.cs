@@ -12,4 +12,5 @@ public interface IWorkoutSessionService
     Task<WorkoutSessionDto?> GetByIdAsync(Guid sessionId, CancellationToken ct);
     Task<IReadOnlyList<WorkoutSessionDto>> GetByRangeAsync(DateTime fromUtc, DateTime toUtc, CancellationToken ct);
     Task<WorkoutSessionDto> AddExerciseAsync(Guid sessionId, AddSessionExerciseRequest req, CancellationToken ct);
+    Task<bool> ReopenScheduledAsync(Guid scheduledId, CancellationToken ct);
 }

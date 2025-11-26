@@ -33,6 +33,16 @@ public sealed class UserProfileDto
     /// List of roles assigned to the user.
     /// </summary>
     public IReadOnlyList<string> Roles { get; set; } = new List<string>();
+
+    /// <summary>
+    /// Target weight goal in kilograms.
+    /// </summary>
+    public decimal? TargetWeightKg { get; set; }
+
+    /// <summary>
+    /// Whether biometric data is shared with friends.
+    /// </summary>
+    public bool ShareBiometricsWithFriends { get; set; }
 }
 
 /// <summary>

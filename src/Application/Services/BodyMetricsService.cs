@@ -9,11 +9,16 @@ public class BodyMetricsService : IBodyMetricsService
 {
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _currentUser;
+    private readonly IFriendshipService _friends;
 
-    public BodyMetricsService(IApplicationDbContext db, ICurrentUserService currentUser)
+    public BodyMetricsService(
+        IApplicationDbContext db, 
+        ICurrentUserService currentUser,
+        IFriendshipService friends)
     {
         _db = db;
         _currentUser = currentUser;
+        _friends = friends;
     }
 
     public async Task<BodyMeasurementDto> AddMeasurementAsync(
@@ -151,6 +156,45 @@ public class BodyMetricsService : IBodyMetricsService
 
         _db.BodyMeasurements.Remove(measurement);
         await _db.SaveChangesAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<BodyMeasurementDto>> GetFriendMetricsAsync(
+        Guid friendId, 
+        CancellationToken ct = default)
+    {
+        var currentUserId = _currentUser.UserId;
+
+        // 1. Check if they are friends
+        var areFriends = await _friends.AreFriendsAsync(currentUserId, friendId, ct);
+        if (!areFriends)
+        {
+            throw new KeyNotFoundException("User is not your friend.");
+        }
+
+        // 2. Check if friend shares biometrics
+        var friend = await _db.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == friendId, ct);
+
+        if (friend == null)
+        {
+            throw new KeyNotFoundException("User not found.");
+        }
+
+        if (!friend.ShareBiometricsWithFriends)
+        {
+            // Return empty list if privacy is disabled (or throw specific error if preferred)
+            // For privacy, sometimes it's better to just say "not available"
+            return Array.Empty<BodyMeasurementDto>();
+        }
+
+        // 3. Get metrics
+        var measurements = await _db.BodyMeasurements
+            .Where(bm => bm.UserId == friendId)
+            .OrderByDescending(bm => bm.MeasuredAtUtc)
+            .ToListAsync(ct);
+
+        return measurements.Select(MapToDto).ToList();
     }
 
     private static BodyMeasurementDto MapToDto(BodyMeasurement m) => new(

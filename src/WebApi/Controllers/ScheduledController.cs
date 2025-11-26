@@ -240,4 +240,41 @@ public class ScheduledController : ControllerBase
         // Uwaga: Link prowadzi do innego kontrolera (SessionsController), więc używamy stringa w Created
         return Created($"/api/sessions/{session.Id}", session);
     }
+
+    /// <summary>
+    /// Przywraca zakończony/przerwany trening do statusu "Zaplanowany".
+    /// </summary>
+    /// <remarks>
+    /// Pozwala cofnąć przypadkowe oznaczenie treningu jako zakończonego lub przerwać przerwany trening.
+    /// 
+    /// **Warunki:**
+    /// - Działa tylko dla sesji utworzonych przez quick complete (`scheduled/{id}/complete`) lub przerwanych (`Aborted`)
+    /// - Nie można przywrócić sesji zakończonej normalnie przez live workout
+    /// - Nie może istnieć aktywna sesja dla tego zaplanowanego treningu
+    /// 
+    /// **Akcja:**
+    /// - Usuwa sesję treningową (wraz z ćwiczeniami i seriami)
+    /// - Zmienia status zaplanowanego treningu na `Planned`
+    /// 
+    /// **Przykładowy scenariusz użycia:**
+    /// Użytkownik przez pomyłkę kliknął "Zakończ trening" zamiast "Rozpocznij trening".
+    /// </remarks>
+    /// <param name="id">Identyfikator zaplanowanego treningu.</param>
+    /// <param name="ct">Token anulowania operacji.</param>
+    /// <response code="204">Trening został przywrócony do statusu zaplanowanego.</response>
+    /// <response code="400">
+    /// Nie można przywrócić tego treningu. Możliwe przyczyny:
+    /// - Sesja została zakończona normalnie przez live workout (nie quick complete)
+    /// - Istnieje aktywna sesja dla tego treningu
+    /// </response>
+    /// <response code="404">Nie znaleziono zaplanowanego treningu lub sesji.</response>
+    [HttpPost("{id:guid}/reopen")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Reopen(Guid id, CancellationToken ct)
+    {
+        await _sessionService.ReopenScheduledAsync(id, ct);
+        return NoContent();
+    }
 }

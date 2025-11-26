@@ -74,11 +74,7 @@ Application/
 │   ├── AnalyticsDto.cs       # DTOs analityki
 │   ├── FriendDto.cs          # DTOs znajomości
 │   ├── FriendsWorkoutsDto.cs # DTOs treningów znajomych
-│   ├── BodyMetrics/          # DTOs pomiarów ciała
-│   │   ├── BodyMeasurementDto.cs
-│   │   ├── CreateBodyMeasurementDto.cs
-│   │   ├── BodyMetricsStatsDto.cs
-│   │   └── BodyMetricsProgressDto.cs
+│   ├── BodyMetricsDto.cs     # DTOs pomiarów ciała
 │   ├── PlanDto.cs            # DTOs planów
 │   ├── ScheduledDto.cs       # DTOs zaplanowanych treningów
 │   ├── SessionsByRangeRequest.cs
@@ -539,21 +535,95 @@ public enum ResetPasswordResult { Ok, UserNotFound }
 
 **Metody**:
 ```csharp
-Task<UserProfileDto> GetCurrentUserProfileAsync(CancellationToken ct);
-Task<UserProfileDto> UpdateProfileAsync(UpdateProfileDto dto, CancellationToken ct);
-Task ChangePasswordAsync(ChangePasswordDto dto, CancellationToken ct);
+Task<UserProfileDto> GetCurrentAsync(CancellationToken ct);
+Task<UserProfileDto> UpdateProfileAsync(UpdateProfileRequest request, CancellationToken ct);
+Task ChangePasswordAsync(ChangePasswordRequest request, CancellationToken ct);
+Task<TargetWeightDto> GetTargetWeightAsync(CancellationToken ct);
+Task UpdateTargetWeightAsync(UpdateTargetWeightRequest request, CancellationToken ct);
+Task UpdateBiometricsPrivacyAsync(bool shareWithFriends, CancellationToken ct);
 ```
 
 **Funkcjonalność**:
 - ✅ **Get Profile** - Pobranie własnego profilu
 - ✅ **Update** - Aktualizacja FullName, Email, Username
 - ✅ **Change Password** - Zmiana hasła (wymagane stare hasło)
+- ✅ **Target Weight** - Zarządzanie wagą docelową (40-200 kg)
+- ✅ **Biometrics Privacy** - Kontrola widoczności danych dla znajomych
 
 **Reguły Biznesowe**:
 1. Walidacja aktualnego hasła przed zmianą
 2. Email/Username unikalność
 3. Username pattern validation
 4. Użytkownik może edytować tylko własny profil
+5. **Target Weight**: można ustawić (40-200kg) lub wyczyścić (null/0)
+6. **Privacy**: domyślnie `ShareBiometricsWithFriends = false`
+
+**Nowe Funkcje (Target Weight)**:
+
+```csharp
+// Pobranie wagi docelowej
+var targetWeight = await _userProfileService.GetTargetWeightAsync(ct);
+// targetWeight.TargetWeightKg może być null (nie ustawiona)
+
+// Ustawienie wagi docelowej
+var updateRequest = new UpdateTargetWeightRequest { TargetWeightKg = 75.5m };
+await _userProfileService.UpdateTargetWeightAsync(updateRequest, ct);
+
+// Wyczyszczenie wagi docelowej (opcja 1: null)
+var clearRequest = new UpdateTargetWeightRequest { TargetWeightKg = null };
+await _userProfileService.UpdateTargetWeightAsync(clearRequest, ct);
+
+// Wyczyszczenie wagi docelowej (opcja 2: 0)
+var clearRequest2 = new UpdateTargetWeightRequest { TargetWeightKg = 0 };
+await _userProfileService.UpdateTargetWeightAsync(clearRequest2, ct);
+
+// Zmiana ustawień prywatności biometryki
+await _userProfileService.UpdateBiometricsPrivacyAsync(shareWithFriends: true, ct);
+```
+
+**Walidacja Target Weight**:
+- **Zakres**: 40-200 kg (pokrywa 99% dorosłych)
+- **Clearing**: `0` lub `null` czyści wartość
+- **Wartości poniżej 40kg**: Błąd walidacji (oprócz 0)
+- **Wartości powyżej 200kg**: Błąd walidacji
+
+**DTOs**:
+```csharp
+public class UserProfileDto
+{
+    public Guid Id { get; set; }
+    public string UserName { get; set; }
+    public string FullName { get; set; }
+    public string Email { get; set; }
+    public IReadOnlyList<string> Roles { get; set; }
+    public decimal? TargetWeightKg { get; set; }  // NEW
+    public bool ShareBiometricsWithFriends { get; set; }  // NEW
+}
+
+public class TargetWeightDto
+{
+    public decimal? TargetWeightKg { get; set; }
+}
+
+public class UpdateTargetWeightRequest : IValidatableObject
+{
+    public decimal? TargetWeightKg { get; set; }
+    // Walidacja: 0 lub 40-200kg
+}
+
+public class UpdateBiometricsPrivacyRequest
+{
+    [Required]
+    public bool ShareWithFriends { get; set; }
+}
+```
+
+**Endpoints**:
+- `GET /api/userprofile` - Zwraca profil z `TargetWeightKg` i `ShareBiometricsWithFriends`
+- `GET /api/userprofile/target-weight` - Dedykowany endpoint dla wagi docelowej
+- `PUT /api/userprofile/target-weight` - Ustawienie/wyczyszczenie wagi
+- `PUT /api/userprofile/biometrics-privacy` - Toggle widoczności biometryki
+
 
 ---
 
@@ -571,6 +641,7 @@ Task<BodyMeasurementDto?> GetLatestMeasurementAsync(CancellationToken ct);
 Task<BodyMetricsStatsDto> GetStatsAsync(CancellationToken ct);
 Task<IReadOnlyList<BodyMetricsProgressDto>> GetProgressAsync(DateTime from, DateTime to, CancellationToken ct);
 Task DeleteMeasurementAsync(Guid id, CancellationToken ct);
+Task<IReadOnlyList<BodyMeasurementDto>> GetFriendMetricsAsync(Guid friendId, DateTime? from, DateTime? to, CancellationToken ct);
 ```
 
 **Funkcjonalność**:

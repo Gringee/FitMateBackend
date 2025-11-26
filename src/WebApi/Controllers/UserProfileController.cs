@@ -129,4 +129,87 @@ public sealed class UserProfileController : ControllerBase
         await _svc.ChangePasswordAsync(request, ct);
         return NoContent();
     }
+
+    /// <summary>
+    /// Pobiera wagę docelową użytkownika.
+    /// </summary>
+    /// <param name="ct">Token anulowania operacji.</param>
+    /// <returns>Waga docelowa w kg (null jeśli nie ustawiona).</returns>
+    /// <response code="200">Zwraca wagę docelową.</response>
+    /// <response code="401">Użytkownik niezalogowany.</response>
+    [HttpGet("target-weight")]
+    [ProducesResponseType(typeof(TargetWeightDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<TargetWeightDto>> GetTargetWeight(CancellationToken ct)
+    {
+        var dto = await _svc.GetTargetWeightAsync(ct);
+        return Ok(dto);
+    }
+
+    /// <summary>
+    /// Ustawia lub usuwa wagę docelową użytkownika.
+    /// </summary>
+    /// <remarks>
+    /// Pozwala na:
+    /// * Ustawienie wagi docelowej (40-200 kg)
+    /// * Usunięcie wagi docelowej (null lub 0)
+    /// 
+    /// **Przykładowe żądania:**
+    /// 
+    ///     PUT /api/userprofile/target-weight
+    ///     { "targetWeightKg": 75.5 }
+    ///     
+    ///     PUT /api/userprofile/target-weight
+    ///     { "targetWeightKg": null }
+    ///     
+    ///     PUT /api/userprofile/target-weight
+    ///     { "targetWeightKg": 0 }
+    /// </remarks>
+    /// <param name="request">Waga docelowa (40-200 kg, null lub 0 czyści).</param>
+    /// <param name="ct">Token anulowania operacji.</param>
+    /// <response code="204">Waga docelowa została zaktualizowana.</response>
+    /// <response code="400">Błąd walidacji (waga poza zakresem 40-200 kg).</response>
+    /// <response code="401">Użytkownik niezalogowany.</response>
+    [HttpPut("target-weight")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> UpdateTargetWeight(
+        [FromBody] UpdateTargetWeightRequest request,
+        CancellationToken ct)
+    {
+        await _svc.UpdateTargetWeightAsync(request, ct);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Zmienia ustawienie widoczności danych biometrycznych dla znajomych.
+    /// </summary>
+    /// <remarks>
+    /// Kontroluje czy znajomi mogą widzieć:
+    /// * Wagę docelową
+    /// * Pomiary ciała (BodyMeasurements)
+    /// * Aktualna wagę
+    /// 
+    /// **Przykładowe żądanie:**
+    /// 
+    ///     PUT /api/userprofile/biometrics-privacy
+    ///     { "shareWithFriends": true }
+    /// </remarks>
+    /// <param name="request">Ustawienie widoczności.</param>
+    /// <param name="ct">Token anulowania operacji.</param>
+    /// <response code="204">Ustawienie zostało zaktualizowane.</response>
+    /// <response code="400">Błąd walidacji.</response>
+    /// <response code="401">Użytkownik niezalogowany.</response>
+    [HttpPut("biometrics-privacy")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> UpdateBiometricsPrivacy(
+        [FromBody] UpdateBiometricsPrivacyRequest request,
+        CancellationToken ct)
+    {
+        await _svc.UpdateBiometricsPrivacyAsync(request.ShareWithFriends, ct);
+        return NoContent();
+    }
 }

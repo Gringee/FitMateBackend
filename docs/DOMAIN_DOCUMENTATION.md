@@ -74,6 +74,8 @@ public class User
     public string? FullName { get; set; }           // Pełne imię i nazwisko
     public string UserName { get; set; }            // Unikalna nazwa użytkownika
     public DateTime CreatedAtUtc { get; set; }      // Data utworzenia
+    public decimal? TargetWeightKg { get; set; }    // Waga docelowa
+    public bool ShareBiometricsWithFriends { get; set; } // Widoczność biometryki
     
     // Nawigacja
     public ICollection<UserRole> UserRoles { get; set; }           // Role użytkownika
@@ -659,6 +661,8 @@ erDiagram
         string PasswordHash
         string FullName
         DateTime CreatedAtUtc
+        decimal TargetWeightKg
+        bool ShareBiometricsWithFriends
     }
     
     Role {

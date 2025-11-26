@@ -162,4 +162,21 @@ public class BodyMetricsController : ControllerBase
         await _service.DeleteMeasurementAsync(id, ct);
         return NoContent();
     }
+
+    /// <summary>
+    /// Pobiera pomiary znajomego (jeśli udostępnił).
+    /// </summary>
+    /// <param name="friendId">ID znajomego.</param>
+    /// <param name="ct">Token anulowania.</param>
+    /// <returns>Lista pomiarów znajomego.</returns>
+    [HttpGet("friends/{friendId}")]
+    [ProducesResponseType(typeof(IReadOnlyList<BodyMeasurementDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyList<BodyMeasurementDto>>> GetFriendMetrics(
+        Guid friendId, 
+        CancellationToken ct)
+    {
+        var metrics = await _service.GetFriendMetricsAsync(friendId, ct);
+        return Ok(metrics);
+    }
 }

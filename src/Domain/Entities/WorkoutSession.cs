@@ -48,6 +48,13 @@ public class WorkoutSession
     public string? SessionNotes { get; set; }
 
     /// <summary>
+    /// Indicates if this session was created via quick complete endpoint (scheduled/{id}/complete)
+    /// rather than live workout flow (sessions/start -> complete).
+    /// Used to determine if session can be reopened.
+    /// </summary>
+    public bool IsQuickComplete { get; set; }
+
+    /// <summary>
     /// Collection of exercises performed in the session.
     /// </summary>
     public ICollection<SessionExercise> Exercises { get; set; } = new List<SessionExercise>();

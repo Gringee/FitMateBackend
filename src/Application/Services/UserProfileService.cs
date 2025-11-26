@@ -36,7 +36,9 @@ public sealed class UserProfileService : IUserProfileService
             UserName = user.UserName,
             FullName = user.FullName ?? string.Empty,
             Email = user.Email ?? string.Empty,
-            Roles = user.UserRoles.Select(ur => ur.Role.Name).ToList()
+            Roles = user.UserRoles.Select(ur => ur.Role.Name).ToList(),
+            TargetWeightKg = user.TargetWeightKg,
+            ShareBiometricsWithFriends = user.ShareBiometricsWithFriends
         };
     }
 
@@ -72,7 +74,9 @@ public sealed class UserProfileService : IUserProfileService
             UserName = user.UserName,
             FullName = user.FullName ?? "",
             Email = user.Email ?? "",
-            Roles = user.UserRoles.Select(ur => ur.Role.Name).ToList()
+            Roles = user.UserRoles.Select(ur => ur.Role.Name).ToList(),
+            TargetWeightKg = user.TargetWeightKg,
+            ShareBiometricsWithFriends = user.ShareBiometricsWithFriends
         };
     }
 
@@ -85,6 +89,48 @@ public sealed class UserProfileService : IUserProfileService
             throw new InvalidOperationException("Current password is incorrect.");
 
         user.PasswordHash = _hasher.HashPassword(request.NewPassword);
+        await _db.SaveChangesAsync(ct);
+    }
+
+    public async Task<TargetWeightDto> GetTargetWeightAsync(CancellationToken ct)
+    {
+        var user = await _db.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == UserId, ct)
+            ?? throw new KeyNotFoundException("User not found.");
+
+        return new TargetWeightDto
+        {
+            TargetWeightKg = user.TargetWeightKg
+        };
+    }
+
+    public async Task UpdateTargetWeightAsync(UpdateTargetWeightRequest request, CancellationToken ct)
+    {
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == UserId, ct)
+            ?? throw new KeyNotFoundException("User not found.");
+
+        // Clear target if null or 0
+        if (request.TargetWeightKg.HasValue)
+        {
+            user.TargetWeightKg = request.TargetWeightKg.Value == 0 
+                ? null 
+                : request.TargetWeightKg.Value;
+        }
+        else
+        {
+            user.TargetWeightKg = null;
+        }
+
+        await _db.SaveChangesAsync(ct);
+    }
+
+    public async Task UpdateBiometricsPrivacyAsync(bool shareWithFriends, CancellationToken ct)
+    {
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == UserId, ct)
+            ?? throw new KeyNotFoundException("User not found.");
+
+        user.ShareBiometricsWithFriends = shareWithFriends;
         await _db.SaveChangesAsync(ct);
     }
 }

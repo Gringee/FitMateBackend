@@ -227,6 +227,69 @@ public class UserProfileControllerTests : BaseIntegrationTest
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
+    [Fact]
+    public async Task GetTargetWeight_ShouldReturn200OK_AndTargetWeight()
+    {
+        // Arrange
+        var token = await RegisterAndGetTokenAsync();
+        Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // Set initial target weight
+        var updateRequest = new UpdateTargetWeightRequest { TargetWeightKg = 75.5m };
+        await Client.PutAsJsonAsync("/api/userprofile/target-weight", updateRequest);
+
+        // Act
+        var response = await Client.GetAsync("/api/userprofile/target-weight");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var dto = await response.Content.ReadFromJsonAsync<TargetWeightDto>();
+        dto.Should().NotBeNull();
+        dto!.TargetWeightKg.Should().Be(75.5m);
+    }
+
+    [Fact]
+    public async Task UpdateTargetWeight_ShouldReturn204NoContent_AndSetTargetWeight()
+    {
+        // Arrange
+        var token = await RegisterAndGetTokenAsync();
+        Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var updateRequest = new UpdateTargetWeightRequest { TargetWeightKg = 80.0m };
+
+        // Act
+        var response = await Client.PutAsJsonAsync("/api/userprofile/target-weight", updateRequest);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        // Verify
+        var getResponse = await Client.GetAsync("/api/userprofile/target-weight");
+        var dto = await getResponse.Content.ReadFromJsonAsync<TargetWeightDto>();
+        dto!.TargetWeightKg.Should().Be(80.0m);
+    }
+
+    [Fact]
+    public async Task UpdateBiometricsPrivacy_ShouldReturn204NoContent_AndSetPrivacy()
+    {
+        // Arrange
+        var token = await RegisterAndGetTokenAsync();
+        Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var updateRequest = new UpdateBiometricsPrivacyRequest { ShareWithFriends = true };
+
+        // Act
+        var response = await Client.PutAsJsonAsync("/api/userprofile/biometrics-privacy", updateRequest);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        // Verify via GetMe
+        var getResponse = await Client.GetAsync("/api/userprofile");
+        var profile = await getResponse.Content.ReadFromJsonAsync<UserProfileDto>();
+        profile!.ShareBiometricsWithFriends.Should().BeTrue();
+    }
+
     private async Task<string> RegisterAndGetTokenAsync()
     {
         var registerRequest = new RegisterRequest

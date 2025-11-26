@@ -114,6 +114,7 @@ public sealed class WorkoutSessionService : IWorkoutSessionService
             CompletedAtUtc = completedAt,
             DurationSec = duration,
             SessionNotes = req.SessionNotes ?? sch.Notes,
+            IsQuickComplete = true,
             Exercises = sch.Exercises
                 .Select((e, idx) => new SessionExercise
                 {
@@ -264,6 +265,52 @@ public sealed class WorkoutSessionService : IWorkoutSessionService
             .ToListAsync(ct);
 
         return sessions.Select(s => MapToDto(s)).ToList();
+    }
+
+    public async Task<bool> ReopenScheduledAsync(Guid scheduledId, CancellationToken ct)
+    {
+        var userId = UserId;
+
+        var scheduled = await _db.ScheduledWorkouts
+            .FirstOrDefaultAsync(x => x.Id == scheduledId && x.UserId == userId, ct)
+            ?? throw new KeyNotFoundException("Scheduled workout not found");
+
+        var session = await _db.WorkoutSessions
+            .Where(x => x.ScheduledId == scheduledId && x.UserId == userId)
+            .OrderByDescending(x => x.StartedAtUtc)
+            .FirstOrDefaultAsync(ct);
+
+        if (session == null)
+        {
+            throw new InvalidOperationException("No session found for this scheduled workout");
+        }
+
+        var hasActiveSession = await _db.WorkoutSessions
+            .AnyAsync(x => x.ScheduledId == scheduledId 
+                        && x.Status == WorkoutSessionStatus.InProgress 
+                        && x.Id != session.Id, ct);
+
+        if (hasActiveSession)
+        {
+            throw new InvalidOperationException("Cannot reopen: an active session is already in progress for this scheduled workout");
+        }
+
+        var canReopen = session.Status == WorkoutSessionStatus.Aborted ||
+                        (session.Status == WorkoutSessionStatus.Completed && session.IsQuickComplete);
+
+        if (!canReopen)
+        {
+            throw new InvalidOperationException(
+                "Cannot reopen this session. Only aborted or quick completed sessions can be reopened.");
+        }
+
+        _db.WorkoutSessions.Remove(session);
+
+        scheduled.Status = ScheduledStatus.Planned;
+
+        await _db.SaveChangesAsync(ct);
+
+        return true;
     }
 
     public async Task<WorkoutSessionDto> AddExerciseAsync(Guid sessionId, AddSessionExerciseRequest req, CancellationToken ct)
