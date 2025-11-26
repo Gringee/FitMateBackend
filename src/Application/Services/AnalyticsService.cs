@@ -37,7 +37,7 @@ public sealed class AnalyticsService : IAnalyticsService
         var totalVolume = await setsQuery
             .SumAsync(s => (decimal)((s.RepsDone ?? 0) * (double)(s.WeightDone ?? 0)), ct);
         
-        var avgIntensity = await setsQuery
+        var avgWeight = await setsQuery
             .Where(s => s.WeightDone != null && s.WeightDone > 0 && s.RepsDone > 0) 
             .AverageAsync(s => (double?)s.WeightDone, ct) ?? 0; 
 
@@ -56,7 +56,7 @@ public sealed class AnalyticsService : IAnalyticsService
         return new OverviewDto
         {
             TotalVolume = decimal.Round(totalVolume, 2),
-            AvgIntensity = Math.Round(avgIntensity, 2),
+            AvgWeight = Math.Round(avgWeight, 2),
             SessionsCount = sessionsCount,
             AdherencePct = planned == 0 ? 0 : Math.Round((double)completed * 100 / planned, 1),
             NewPrs = 0
@@ -72,7 +72,7 @@ public sealed class AnalyticsService : IAnalyticsService
         var baseQuery = _db.WorkoutSessions
             .AsNoTracking()
             .Where(ws => ws.UserId == userId && ws.CompletedAtUtc != null && 
-                         ws.StartedAtUtc >= fromUtc && ws.StartedAtUtc < toUtc); 
+                         ws.StartedAtUtc >= fromUtc && ws.StartedAtUtc <= toUtc); 
 
         var flatQuery = baseQuery
             .SelectMany(ws => ws.Exercises.SelectMany(se => se.Sets.Select(ss => new
@@ -140,7 +140,7 @@ public sealed class AnalyticsService : IAnalyticsService
         var query = _db.WorkoutSessions
             .AsNoTracking()
             .Where(ws => ws.UserId == userId && ws.CompletedAtUtc != null && 
-                         ws.StartedAtUtc >= fromUtc && ws.StartedAtUtc < toUtc)
+                         ws.StartedAtUtc >= fromUtc && ws.StartedAtUtc <= toUtc)
             .SelectMany(ws => ws.Exercises
                 .Where(se => se.Name == exerciseName)
                 .SelectMany(se => se.Sets

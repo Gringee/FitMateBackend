@@ -81,25 +81,24 @@ public class BodyMetricsService : IBodyMetricsService
         CancellationToken ct = default)
     {
         var userId = _currentUser.UserId;
-
-        var latest = await _db.BodyMeasurements
-            .Where(bm => bm.UserId == userId)
-            .OrderByDescending(bm => bm.MeasuredAtUtc)
-            .FirstOrDefaultAsync(ct);
-
-        return latest != null ? MapToDto(latest) : null;
+        return await GetCompositeMeasurementAsync(userId, ct);
     }
 
     public async Task<BodyMetricsStatsDto> GetStatsAsync(CancellationToken ct = default)
     {
         var userId = _currentUser.UserId;
 
-        var latest = await GetLatestMeasurementAsync(ct);
+        // Note: For stats, we might want the raw latest measurement for accurate weight change,
+        // or the composite one. Usually stats like "Current Weight" should be the latest recorded.
+        // "Current BMI" also. 
+        // If we use GetCompositeMeasurementAsync, we get filled-in body fat etc, but Weight/Height/BMI 
+        // are still from the latest record. So it is safe to use.
+        var latest = await GetCompositeMeasurementAsync(userId, ct);
         
         var thirtyDaysAgo = DateTime.UtcNow.AddDays(-30);
         var oldMeasurement = await _db.BodyMeasurements
-            .Where(bm => bm.UserId == userId && bm.MeasuredAtUtc <= thirtyDaysAgo)
-            .OrderByDescending(bm => bm.MeasuredAtUtc)
+            .Where(bm => bm.UserId == userId && bm.MeasuredAtUtc >= thirtyDaysAgo)
+            .OrderBy(bm => bm.MeasuredAtUtc)
             .FirstOrDefaultAsync(ct);
 
         var allMeasurements = await _db.BodyMeasurements
@@ -158,7 +157,7 @@ public class BodyMetricsService : IBodyMetricsService
         await _db.SaveChangesAsync(ct);
     }
 
-    public async Task<IReadOnlyList<BodyMeasurementDto>> GetFriendMetricsAsync(
+    public async Task<BodyMeasurementDto?> GetFriendMetricsAsync(
         Guid friendId, 
         CancellationToken ct = default)
     {
@@ -183,18 +182,40 @@ public class BodyMetricsService : IBodyMetricsService
 
         if (!friend.ShareBiometricsWithFriends)
         {
-            // Return empty list if privacy is disabled (or throw specific error if preferred)
-            // For privacy, sometimes it's better to just say "not available"
-            return Array.Empty<BodyMeasurementDto>();
+            return null;
         }
 
-        // 3. Get metrics
+        // 3. Get composite metrics
+        return await GetCompositeMeasurementAsync(friendId, ct);
+    }
+
+    private async Task<BodyMeasurementDto?> GetCompositeMeasurementAsync(
+        Guid userId, 
+        CancellationToken ct)
+    {
         var measurements = await _db.BodyMeasurements
-            .Where(bm => bm.UserId == friendId)
+            .AsNoTracking()
+            .Where(bm => bm.UserId == userId)
             .OrderByDescending(bm => bm.MeasuredAtUtc)
             .ToListAsync(ct);
 
-        return measurements.Select(MapToDto).ToList();
+        if (!measurements.Any())
+            return null;
+
+        var composite = measurements.First();
+        
+        // Fill missing fields from older measurements
+        foreach (var older in measurements.Skip(1))
+        {
+            composite.BodyFatPercentage ??= older.BodyFatPercentage;
+            composite.ChestCm ??= older.ChestCm;
+            composite.WaistCm ??= older.WaistCm;
+            composite.HipsCm ??= older.HipsCm;
+            composite.BicepsCm ??= older.BicepsCm;
+            composite.ThighsCm ??= older.ThighsCm;
+        }
+
+        return MapToDto(composite);
     }
 
     private static BodyMeasurementDto MapToDto(BodyMeasurement m) => new(

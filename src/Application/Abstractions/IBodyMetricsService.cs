@@ -23,5 +23,5 @@ public interface IBodyMetricsService
         CancellationToken ct = default);
     
     Task DeleteMeasurementAsync(Guid id, CancellationToken ct = default);
-    Task<IReadOnlyList<BodyMeasurementDto>> GetFriendMetricsAsync(Guid friendId, CancellationToken ct = default);
+    Task<BodyMeasurementDto?> GetFriendMetricsAsync(Guid friendId, CancellationToken ct = default);
 }

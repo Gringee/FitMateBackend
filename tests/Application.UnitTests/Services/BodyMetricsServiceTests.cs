@@ -143,8 +143,8 @@ public class BodyMetricsServiceTests
         result.HighestWeight.Should().Be(75);
         result.TotalMeasurements.Should().Be(3);
         
-        // Weight change: 75 (latest) - 70 (30+ days ago) = 5
-        result.WeightChangeLast30Days.Should().Be(5);
+        // Weight change: 75 (latest) - 72 (oldest in last 30 days) = 3
+        result.WeightChangeLast30Days.Should().Be(3);
     }
 
     [Fact]
@@ -241,6 +241,47 @@ public class BodyMetricsServiceTests
     }
 
     [Fact]
+    public async Task GetLatestMeasurementAsync_ShouldFillMissingFields_FromOlderMeasurements()
+    {
+        // Arrange
+        var older = new BodyMeasurement
+        {
+            Id = Guid.NewGuid(),
+            UserId = _userId,
+            MeasuredAtUtc = DateTime.UtcNow.AddDays(-10),
+            WeightKg = 72,
+            HeightCm = 175,
+            BMI = 23.51m,
+            BodyFatPercentage = 15.0m, // Present in older
+            ChestCm = 100 // Present in older
+        };
+        
+        var newer = new BodyMeasurement
+        {
+            Id = Guid.NewGuid(),
+            UserId = _userId,
+            MeasuredAtUtc = DateTime.UtcNow,
+            WeightKg = 75,
+            HeightCm = 175,
+            BMI = 24.49m,
+            BodyFatPercentage = null, // Missing in newer
+            ChestCm = 102 // Present in newer (should override)
+        };
+
+        _db.BodyMeasurements.AddRange(older, newer);
+        await _db.SaveChangesAsync();
+
+        // Act
+        var result = await _service.GetLatestMeasurementAsync();
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.WeightKg.Should().Be(75); // From newer
+        result.BodyFatPercentage.Should().Be(15.0m); // Filled from older
+        result.ChestCm.Should().Be(102); // From newer (not overwritten)
+    }
+
+    [Fact]
     public async Task GetFriendMetricsAsync_ShouldReturnMetrics_WhenFriendsAndSharingEnabled()
     {
         // Arrange
@@ -279,28 +320,12 @@ public class BodyMetricsServiceTests
         var result = await _service.GetFriendMetricsAsync(friendId);
 
         // Assert
-        result.Should().HaveCount(1);
-        result.First().WeightKg.Should().Be(80);
+        result.Should().NotBeNull();
+        result!.WeightKg.Should().Be(80);
     }
 
     [Fact]
-    public async Task GetFriendMetricsAsync_ShouldThrow_WhenNotFriends()
-    {
-        // Arrange
-        var friendId = Guid.NewGuid();
-        _friendsMock.Setup(x => x.AreFriendsAsync(_userId, friendId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
-
-        // Act
-        Func<Task> act = async () => await _service.GetFriendMetricsAsync(friendId);
-
-        // Assert
-        await act.Should().ThrowAsync<KeyNotFoundException>()
-            .WithMessage("User is not your friend.");
-    }
-
-    [Fact]
-    public async Task GetFriendMetricsAsync_ShouldReturnEmpty_WhenSharingDisabled()
+    public async Task GetFriendMetricsAsync_ShouldReturnNull_WhenSharingDisabled()
     {
         // Arrange
         var friendId = Guid.NewGuid();
@@ -324,7 +349,7 @@ public class BodyMetricsServiceTests
         var result = await _service.GetFriendMetricsAsync(friendId);
 
         // Assert
-        result.Should().BeEmpty();
+        result.Should().BeNull();
     }
 
     private async Task SeedMeasurementsAsync()

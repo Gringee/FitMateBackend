@@ -48,7 +48,7 @@ public class AnalyticsServiceTests
         // Assert
         result.Should().NotBeNull();
         result.TotalVolume.Should().Be(1000);
-        result.AvgIntensity.Should().Be(100);
+        result.AvgWeight.Should().Be(100);
         result.SessionsCount.Should().Be(1);
     }
 
@@ -64,7 +64,7 @@ public class AnalyticsServiceTests
 
         // Assert
         result.TotalVolume.Should().Be(0);
-        result.AvgIntensity.Should().Be(0);
+        result.AvgWeight.Should().Be(0);
         result.SessionsCount.Should().Be(0);
     }
 

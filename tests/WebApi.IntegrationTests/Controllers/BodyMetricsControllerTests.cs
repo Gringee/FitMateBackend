@@ -150,13 +150,13 @@ public class BodyMetricsControllerTests : BaseIntegrationTest
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var metrics = await response.Content.ReadFromJsonAsync<List<BodyMeasurementDto>>();
-        metrics.Should().HaveCount(1);
-        metrics!.First().WeightKg.Should().Be(80);
+        var metrics = await response.Content.ReadFromJsonAsync<BodyMeasurementDto>();
+        metrics.Should().NotBeNull();
+        metrics!.WeightKg.Should().Be(80);
     }
 
     [Fact]
-    public async Task GetFriendMetrics_ShouldReturnEmpty_WhenFriendDoesNotShare()
+    public async Task GetFriendMetrics_ShouldReturnNotFound_WhenFriendDoesNotShare()
     {
         // Arrange
         var user1Token = await RegisterAndGetTokenAsync();
@@ -189,9 +189,7 @@ public class BodyMetricsControllerTests : BaseIntegrationTest
         var response = await Client.GetAsync($"/api/body-metrics/friends/{user1Id}");
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var metrics = await response.Content.ReadFromJsonAsync<List<BodyMeasurementDto>>();
-        metrics.Should().BeEmpty();
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     private async Task<string> RegisterAndGetTokenAsync()

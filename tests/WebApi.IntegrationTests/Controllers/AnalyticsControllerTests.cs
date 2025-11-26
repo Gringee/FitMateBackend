@@ -47,6 +47,46 @@ public class AnalyticsControllerTests : BaseIntegrationTest
     }
 
     [Fact]
+    public async Task Overview_ShouldReturn200OK_WhenSingleDayQuery()
+    {
+        // Arrange
+        var (token, _) = await SetupUserWithDataAsync();
+        Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var date = DateTime.UtcNow.ToString("o");
+
+        // Act
+        var response = await Client.GetAsync($"/api/analytics/overview?from={date}&to={date}");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Overview_And_Volume_ShouldHaveConsistentSessionCount()
+    {
+        // Arrange
+        var (token, _) = await SetupUserWithDataAsync();
+        Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var from = DateTime.UtcNow.AddDays(-10).ToString("o");
+        var to = DateTime.UtcNow.AddDays(10).ToString("o");
+
+        // Act - Get Overview
+        var overviewResponse = await Client.GetAsync($"/api/analytics/overview?from={from}&to={to}");
+        var overview = await overviewResponse.Content.ReadFromJsonAsync<OverviewDto>();
+
+        // Act - Get Volume grouped by day
+        var volumeResponse = await Client.GetAsync($"/api/analytics/volume?from={from}&to={to}&groupBy=day");
+        var volume = await volumeResponse.Content.ReadFromJsonAsync<List<TimePointDto>>();
+
+        // Assert - Number of sessions in Overview should match number of days with volume
+        overview.Should().NotBeNull();
+        volume.Should().NotBeNull();
+        overview!.SessionsCount.Should().Be(volume!.Count);
+    }
+
+    [Fact]
     public async Task Overview_ShouldReturn400BadRequest_WhenDateFormatInvalid()
     {
         // Arrange

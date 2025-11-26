@@ -14,9 +14,9 @@ public class OverviewDto
     public decimal TotalVolume { get; set; }
     
     /// <summary>
-    /// Average intensity of workouts.
+    /// Average weight used across all sets.
     /// </summary>
-    public double AvgIntensity { get; set; }
+    public double AvgWeight { get; set; }
     
     /// <summary>
     /// Total number of workout sessions.
@@ -180,7 +180,7 @@ public sealed class OverviewQueryDto : IValidatableObject
 
     public IEnumerable<ValidationResult> Validate(ValidationContext _)
     {
-        if (To <= From) yield return new ValidationResult("'To' must be > 'From'.", new[] { nameof(To) });
+        if (To < From) yield return new ValidationResult("'To' must be >= 'From'.", new[] { nameof(To) });
     }
 
     public (DateTime FromUtc, DateTime ToUtc) ToUtcRange() => DateHelpers.NormalizeRange(From, To);
@@ -215,7 +215,7 @@ public sealed class VolumeQueryDto : IValidatableObject
 
     public IEnumerable<ValidationResult> Validate(ValidationContext _)
     {
-        if (To <= From) yield return new ValidationResult("'To' must be > 'From'.", new[] { nameof(To) });
+        if (To < From) yield return new ValidationResult("'To' must be >= 'From'.", new[] { nameof(To) });
     }
 
     public (DateTime FromUtc, DateTime ToUtc) ToUtcRange() => DateHelpers.NormalizeRange(From, To);
@@ -239,7 +239,7 @@ public sealed class E1rmQueryDto : IValidatableObject
 
     public IEnumerable<ValidationResult> Validate(ValidationContext _)
     {
-        if (To <= From) yield return new ValidationResult("'To' must be > 'From'.", new[] { nameof(To) });
+        if (To < From) yield return new ValidationResult("'To' must be >= 'From'.", new[] { nameof(To) });
     }
 
     public (DateTime FromUtc, DateTime ToUtc) ToUtcRange() => DateHelpers.NormalizeRange(From, To);
@@ -262,7 +262,7 @@ public sealed class AdherenceQueryDto : IValidatableObject
 
     public IEnumerable<ValidationResult> Validate(ValidationContext _)
     {
-        if (ToDate <= FromDate) yield return new ValidationResult("'To' must be > 'From'.", new[] { nameof(ToDate) });
+        if (ToDate < FromDate) yield return new ValidationResult("'To' must be >= 'From'.", new[] { nameof(ToDate) });
     }
     
     public (DateOnly From, DateOnly To) ToRange() => (FromDate, ToDate);
