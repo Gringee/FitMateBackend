@@ -93,54 +93,35 @@ public sealed class PlanService : IPlanService
     {
         var userId = UserId;
 
-        using var transaction = await _db.Database.BeginTransactionAsync(ct);
+        // Load plan WITHOUT exercises (avoid EF tracking issues)
+        var plan = await _db.Plans
+            .FirstOrDefaultAsync(p => p.Id == id && p.CreatedByUserId == userId, ct);
 
-        try
+        if (plan is null) return null;
+
+        // Update plan properties
+        plan.PlanName = dto.PlanName;
+        plan.Type = dto.Type;
+        plan.Notes = dto.Notes;
+
+        // Delete old exercises via direct query (without loading them with Include)
+        var oldExercises = await _db.PlanExercises
+            .Where(e => e.PlanId == id)
+            .ToListAsync(ct);
+        
+        _db.PlanExercises.RemoveRange(oldExercises);
+
+        // Add new exercises if provided
+        if (dto.Exercises is { Count: > 0 })
         {
-            var plan = await _db.Plans
-                .FirstOrDefaultAsync(p => p.Id == id && p.CreatedByUserId == userId, ct);
-
-            if (plan is null) return null;
-            
-            await _db.Database.ExecuteSqlRawAsync(
-                "DELETE FROM plan_sets WHERE \"PlanExerciseId\" IN (SELECT \"Id\" FROM plan_exercises WHERE \"PlanId\" = {0})",
-                new object[] { id }, ct);
-                
-            await _db.Database.ExecuteSqlRawAsync(
-                "DELETE FROM plan_exercises WHERE \"PlanId\" = {0}",
-                new object[] { id }, ct);
-            
-            _db.ChangeTracker.Clear();
-
-            _db.Plans.Attach(plan);
-            plan.PlanName = dto.PlanName;
-            plan.Type = dto.Type;
-            plan.Notes = dto.Notes;
-
-            var entry = _db.Entry(plan);
-            entry.Property(p => p.PlanName).IsModified = true;
-            entry.Property(p => p.Type).IsModified = true;
-            entry.Property(p => p.Notes).IsModified = true;
-
-            if (dto.Exercises is { Count: > 0 })
-            {
-                var newExercises = CreateExercisesFromDto(dto.Exercises, id);
-                foreach (var pe in newExercises)
-                {
-                    _db.PlanExercises.Add(pe);
-                }
-            }
-            
-            await _db.SaveChangesAsync(ct);
-            await transaction.CommitAsync(ct);
-            
-            return await GetByIdAsync(id, ct);
+            var newExercises = CreateExercisesFromDto(dto.Exercises, id);
+            await _db.PlanExercises.AddRangeAsync(newExercises, ct);
         }
-        catch
-        {
-            await transaction.RollbackAsync(ct);
-            throw;
-        }
+
+        await _db.SaveChangesAsync(ct);
+        
+        // Reload with exercises for return
+        return await GetByIdAsync(id, ct);
     }
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken ct = default)

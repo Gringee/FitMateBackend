@@ -181,4 +181,86 @@ public class UserServiceTests
         // Assert
         await act.Should().ThrowAsync<KeyNotFoundException>();
     }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldThrow_WhenUsernameTaken()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var user = new User { Id = userId, UserName = "original", Email = "original@test.com", FullName = "Original", PasswordHash = "hash" };
+        await _dbContext.Users.AddAsync(user);
+        await _dbContext.SaveChangesAsync();
+
+        var dto = new UpdateUserDto { UserName = "taken" };
+
+        _validationHelpersMock.Setup(x => x.EnsureUserNameIsUniqueAsync("taken", It.IsAny<CancellationToken>(), userId))
+            .ThrowsAsync(new InvalidOperationException("Username taken"));
+
+        // Act
+        Func<Task> act = async () => await _sut.UpdateAsync(userId, dto, CancellationToken.None);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("Username taken");
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldThrow_WhenEmailTaken()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var user = new User { Id = userId, UserName = "original", Email = "original@test.com", FullName = "Original", PasswordHash = "hash" };
+        await _dbContext.Users.AddAsync(user);
+        await _dbContext.SaveChangesAsync();
+
+        var dto = new UpdateUserDto { Email = "taken@test.com" };
+
+        _validationHelpersMock.Setup(x => x.EnsureEmailIsUniqueAsync("taken@test.com", It.IsAny<CancellationToken>(), userId))
+            .ThrowsAsync(new InvalidOperationException("Email taken"));
+
+        // Act
+        Func<Task> act = async () => await _sut.UpdateAsync(userId, dto, CancellationToken.None);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("Email taken");
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ShouldOnlyUpdateProvidedFields()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var user = new User 
+        { 
+            Id = userId, 
+            UserName = "original", 
+            Email = "original@test.com", 
+            FullName = "Original Name",
+            PasswordHash = "hash"
+        };
+        await _dbContext.Users.AddAsync(user);
+        await _dbContext.SaveChangesAsync();
+
+        // Only update FullName, leave others null/empty
+        var dto = new UpdateUserDto 
+        { 
+            FullName = "Updated Name" 
+            // UserName and Email are null
+        };
+
+        // Act
+        await _sut.UpdateAsync(userId, dto, CancellationToken.None);
+
+        // Assert
+        var updatedUser = await _dbContext.Users.FindAsync(userId);
+        updatedUser.Should().NotBeNull();
+        updatedUser!.FullName.Should().Be("Updated Name");
+        updatedUser.UserName.Should().Be("original"); // Should not change
+        updatedUser.Email.Should().Be("original@test.com"); // Should not change
+        
+        // Verify validation was NOT called
+        _validationHelpersMock.Verify(x => x.EnsureUserNameIsUniqueAsync(It.IsAny<string>(), It.IsAny<CancellationToken>(), It.IsAny<Guid?>()), Times.Never);
+        _validationHelpersMock.Verify(x => x.EnsureEmailIsUniqueAsync(It.IsAny<string>(), It.IsAny<CancellationToken>(), It.IsAny<Guid?>()), Times.Never);
+    }
 }

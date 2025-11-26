@@ -180,6 +180,36 @@ public class WorkoutSessionServiceTests
     }
 
     [Fact]
+    public async Task PatchSetAsync_ShouldOnlyUpdateProvidedFields()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var (session, setId) = await SetupSessionInProgressAsync(userId);
+
+        // Initial update to set some values
+        var initialRequest = new PatchSetRequest { RepsDone = 10, WeightDone = 100, Rpe = 8, IsFailure = false };
+        await _sut.PatchSetAsync(session.Id, setId, initialRequest, CancellationToken.None);
+
+        // Partial update: only change RepsDone
+        var patchRequest = new PatchSetRequest 
+        { 
+            RepsDone = 12 
+            // WeightDone, Rpe, IsFailure are null
+        };
+
+        // Act
+        var result = await _sut.PatchSetAsync(session.Id, setId, patchRequest, CancellationToken.None);
+
+        // Assert
+        result.Should().NotBeNull();
+        var updatedSet = result.Exercises.First().Sets.First();
+        updatedSet.RepsDone.Should().Be(12); // Changed
+        updatedSet.WeightDone.Should().Be(100); // Unchanged
+        updatedSet.Rpe.Should().Be(8); // Unchanged
+        updatedSet.IsFailure.Should().BeFalse(); // Unchanged
+    }
+
+    [Fact]
     public async Task PatchSetAsync_ShouldThrow_WhenSessionNotInProgress()
     {
         // Arrange

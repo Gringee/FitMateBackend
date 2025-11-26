@@ -111,8 +111,7 @@ public sealed class ScheduledService : IScheduledService
         var userId = UserId;
 
         var existing = await _db.ScheduledWorkouts
-            .Include(s => s.Exercises).ThenInclude(e => e.Sets)
-            .FirstOrDefaultAsync(s => s.Id == id && s.UserId == userId, ct);
+            .FirstOrDefaultAsync(s => s.Id == id && s.UserId == userId, ct);  // NO INCLUDE - load without exercises
 
         if (existing is null) return null;
 
@@ -122,6 +121,7 @@ public sealed class ScheduledService : IScheduledService
                    ?? throw new KeyNotFoundException("Plan not found");
 
         bool planChanged = existing.PlanId != dto.PlanId;
+        bool exercisesProvided = dto.Exercises is { Count: > 0 };
 
         existing.Date = dto.Date;
         existing.Time = dto.Time;
@@ -133,21 +133,37 @@ public sealed class ScheduledService : IScheduledService
         existing.Status = ParseStatus(dto.Status);
         existing.IsVisibleToFriends = dto.VisibleToFriends;
 
-        if (dto.Exercises is { Count: > 0 })
+        if (exercisesProvided || planChanged)
         {
-            existing.Exercises.Clear();
-            var newExercises = CreateExercisesFromDto(dto.Exercises, existing.Id);
-            foreach (var ex in newExercises) existing.Exercises.Add(ex);
-        }
-        else if (planChanged)
-        {
-            existing.Exercises.Clear();
-            var newExercises = CreateExercisesFromPlan(plan, existing.Id);
-            foreach (var ex in newExercises) existing.Exercises.Add(ex);
+            // Delete old exercises via direct query (without loading them into memory)
+            var oldExercises = await _db.ScheduledExercises
+                .Where(e => e.ScheduledWorkoutId == id)
+                .ToListAsync(ct);
+            
+            _db.ScheduledExercises.RemoveRange(oldExercises);
+            
+            // Add new exercises
+            List<ScheduledExercise> newExercises;
+            if (exercisesProvided)
+            {
+                newExercises = CreateExercisesFromDto(dto.Exercises!, existing.Id);
+            }
+            else
+            {
+                newExercises = CreateExercisesFromPlan(plan, existing.Id);
+            }
+            
+            await _db.ScheduledExercises.AddRangeAsync(newExercises, ct);
         }
 
         await _db.SaveChangesAsync(ct);
-        return Map(existing);
+        
+        // Reload with exercises for return
+        var updated = await _db.ScheduledWorkouts
+            .Include(s => s.Exercises).ThenInclude(e => e.Sets)
+            .FirstAsync(s => s.Id == existing.Id, ct);
+            
+        return Map(updated);
     }
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken ct = default)

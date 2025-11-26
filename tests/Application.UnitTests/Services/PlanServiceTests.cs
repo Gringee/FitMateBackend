@@ -426,6 +426,119 @@ public class PlanServiceTests
         result.First().PlanName.Should().Be("Shared Plan");
     }
 
+    [Fact]
+    public async Task DeleteAsync_ShouldReturnFalse_WhenPlanNotFound()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+
+        // Act
+        var result = await _sut.DeleteAsync(Guid.NewGuid(), CancellationToken.None);
+
+        // Assert
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DuplicateAsync_ShouldReturnNull_WhenPlanNotFound()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+
+        // Act
+        var result = await _sut.DuplicateAsync(Guid.NewGuid(), CancellationToken.None);
+
+        // Assert
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task DuplicateAsync_ShouldCopyAllExercises_WithMultipleSets()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+
+        var originalPlan = new Plan
+        {
+            Id = Guid.NewGuid(),
+            PlanName = "Complex Plan",
+            Type = "PPL",
+            CreatedByUserId = userId
+        };
+
+        var exercise1 = new PlanExercise
+        {
+            Id = Guid.NewGuid(),
+            PlanId = originalPlan.Id,
+            Name = "Squat",
+            RestSeconds = 180
+        };
+
+        exercise1.Sets.Add(new PlanSet
+        {
+            Id = Guid.NewGuid(),
+            PlanExerciseId = exercise1.Id,
+            SetNumber = 1,
+            Reps = 5,
+            Weight = 100
+        });
+
+        exercise1.Sets.Add(new PlanSet
+        {
+            Id = Guid.NewGuid(),
+            PlanExerciseId = exercise1.Id,
+            SetNumber = 2,
+            Reps = 5,
+            Weight = 110
+        });
+
+        var exercise2 = new PlanExercise
+        {
+            Id = Guid.NewGuid(),
+            PlanId = originalPlan.Id,
+            Name = "Bench Press",
+            RestSeconds = 120
+        };
+
+        exercise2.Sets.Add(new PlanSet
+        {
+            Id = Guid.NewGuid(),
+            PlanExerciseId = exercise2.Id,
+            SetNumber = 1,
+            Reps = 8,
+            Weight = 80
+        });
+
+        originalPlan.Exercises.Add(exercise1);
+        originalPlan.Exercises.Add(exercise2);
+
+        await _dbContext.Plans.AddAsync(originalPlan);
+        await _dbContext.SaveChangesAsync();
+
+        // Act
+        var result = await _sut.DuplicateAsync(originalPlan.Id, CancellationToken.None);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.Exercises.Should().HaveCount(2);
+
+        var squat = result.Exercises.First(e => e.Name == "Squat");
+        squat.Sets.Should().HaveCount(2);
+        squat.Sets.ElementAt(0).Weight.Should().Be(100);
+        squat.Sets.ElementAt(1).Weight.Should().Be(110);
+
+        var bench = result.Exercises.First(e => e.Name == "Bench Press");
+        bench.Sets.Should().HaveCount(1);
+        bench.Sets.First().Weight.Should().Be(80);
+
+        // Verify in DB - total sets should be 3 (original) + 3 (copy) = 6
+        var allSets = await _dbContext.PlanSets.ToListAsync();
+        allSets.Should().HaveCount(6);
+    }
+
     // Helper method to setup authenticated user
     private void SetupAuthenticatedUser(Guid userId)
     {
