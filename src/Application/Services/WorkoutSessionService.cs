@@ -1,9 +1,7 @@
 using Application.Abstractions;
 using Application.DTOs;
-using Application.Common.Security; // Extension GetUserId()
 using Domain.Entities;
 using Domain.Enums;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace Application.Services;
@@ -11,16 +9,15 @@ namespace Application.Services;
 public sealed class WorkoutSessionService : IWorkoutSessionService
 {
     private readonly IApplicationDbContext _db;
-    private readonly IHttpContextAccessor _http;
+    private readonly ICurrentUserService _currentUser;
 
-    public WorkoutSessionService(IApplicationDbContext db, IHttpContextAccessor http)
+    public WorkoutSessionService(IApplicationDbContext db, ICurrentUserService currentUser)
     {
         _db = db;
-        _http = http;
+        _currentUser = currentUser;
     }
-
-    private Guid UserId => _http.HttpContext?.User.GetUserId() 
-                           ?? throw new UnauthorizedAccessException("No HttpContext/User.");
+    
+    private Guid UserId => _currentUser.UserId;
 
     public async Task<WorkoutSessionDto> StartAsync(StartSessionRequest req, CancellationToken ct)
     {

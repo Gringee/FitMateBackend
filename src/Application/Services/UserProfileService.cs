@@ -1,7 +1,5 @@
 using Application.Abstractions;
 using Application.DTOs;
-using Application.Common.Security; // Extension
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace Application.Services;
@@ -9,18 +7,17 @@ namespace Application.Services;
 public sealed class UserProfileService : IUserProfileService
 {
     private readonly IApplicationDbContext _db;
-    private readonly IHttpContextAccessor _http;
+    private readonly ICurrentUserService _currentUser;
     private readonly IPasswordHasher _hasher;
 
-    public UserProfileService(IApplicationDbContext db, IHttpContextAccessor http, IPasswordHasher hasher)
+    public UserProfileService(IApplicationDbContext db, ICurrentUserService currentUser, IPasswordHasher hasher)
     {
         _db = db;
-        _http = http;
+        _currentUser = currentUser;
         _hasher = hasher;
     }
 
-    private Guid UserId => _http.HttpContext?.User.GetUserId() 
-                           ?? throw new UnauthorizedAccessException();
+    private Guid UserId => _currentUser.UserId;
 
     public async Task<UserProfileDto> GetCurrentAsync(CancellationToken ct)
     {

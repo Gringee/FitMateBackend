@@ -1,9 +1,7 @@
 using Application.Abstractions;
-using Application.Common.Security;
 using Application.DTOs;
 using Domain.Entities;
 using Domain.Enums;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace Application.Services;
@@ -11,15 +9,14 @@ namespace Application.Services;
 public sealed class FriendshipService : IFriendshipService
 {
     private readonly IApplicationDbContext _db;
-    private readonly IHttpContextAccessor _http;
+    private readonly ICurrentUserService _currentUser;
 
-    public FriendshipService(IApplicationDbContext db, IHttpContextAccessor http)
+    public FriendshipService(IApplicationDbContext db, ICurrentUserService currentUser)
     {
         _db = db;
-        _http = http;
+        _currentUser = currentUser;
     }
-    private Guid UserId => _http.HttpContext?.User.GetUserId() 
-                           ?? throw new UnauthorizedAccessException();
+    private Guid UserId => _currentUser.UserId;
 
     private static (Guid A, Guid B) CanonicalPair(Guid u1, Guid u2)
         => u1.CompareTo(u2) < 0 ? (u1, u2) : (u2, u1);

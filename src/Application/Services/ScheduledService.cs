@@ -2,10 +2,8 @@
 using System.Linq;
 using Application.Abstractions;
 using Application.DTOs;
-using Application.Common.Security; 
 using Domain.Entities;
 using Domain.Enums;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace Application.Services;
@@ -13,15 +11,15 @@ namespace Application.Services;
 public sealed class ScheduledService : IScheduledService
 {
     private readonly IApplicationDbContext _db;
-    private readonly IHttpContextAccessor _http;
+    private readonly ICurrentUserService _currentUser;
 
-    public ScheduledService(IApplicationDbContext db, IHttpContextAccessor http)
+    public ScheduledService(IApplicationDbContext db, ICurrentUserService currentUser)
     {
         _db = db;
-        _http = http;
+        _currentUser = currentUser;
     }
-    private Guid UserId => _http.HttpContext?.User.GetUserId() 
-                           ?? throw new UnauthorizedAccessException("No HttpContext/User.");
+    
+    private Guid UserId => _currentUser.UserId;
 
     public async Task<ScheduledDto> CreateAsync(CreateScheduledDto dto, CancellationToken ct = default)
     {

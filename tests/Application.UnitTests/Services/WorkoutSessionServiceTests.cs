@@ -5,7 +5,6 @@ using Domain.Entities;
 using Domain.Enums;
 using FluentAssertions;
 using Infrastructure.Persistence;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Moq;
 
@@ -14,7 +13,7 @@ namespace Application.UnitTests.Services;
 public class WorkoutSessionServiceTests
 {
     private readonly AppDbContext _dbContext;
-    private readonly Mock<IHttpContextAccessor> _httpContextAccessorMock;
+    private readonly Mock<ICurrentUserService> _currentUserMock;
     private readonly WorkoutSessionService _sut;
 
     public WorkoutSessionServiceTests()
@@ -25,9 +24,9 @@ public class WorkoutSessionServiceTests
             .Options;
 
         _dbContext = new AppDbContext(options);
-        _httpContextAccessorMock = new Mock<IHttpContextAccessor>();
+        _currentUserMock = new Mock<ICurrentUserService>();
         
-        _sut = new WorkoutSessionService(_dbContext, _httpContextAccessorMock.Object);
+        _sut = new WorkoutSessionService(_dbContext, _currentUserMock.Object);
     }
 
     [Fact]
@@ -411,13 +410,7 @@ public class WorkoutSessionServiceTests
     // Helper methods
     private void SetupAuthenticatedUser(Guid userId)
     {
-        var claimsPrincipal = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity(new[]
-        {
-            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, userId.ToString())
-        }));
-        
-        var httpContext = new DefaultHttpContext { User = claimsPrincipal };
-        _httpContextAccessorMock.Setup(x => x.HttpContext).Returns(httpContext);
+        _currentUserMock.Setup(x => x.UserId).Returns(userId);
     }
 
     private async Task<(WorkoutSession session, Guid setId)> SetupSessionInProgressAsync(Guid userId, DateTime? startedAt = null)

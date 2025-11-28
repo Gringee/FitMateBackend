@@ -33,6 +33,7 @@ builder.Services.AddSingleton(jwt);
 // ---------------- DI: services ----------------
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IPlanService, PlanService>();
+builder.Services.AddScoped<IPlanSharingService, PlanSharingService>();
 builder.Services.AddScoped<IScheduledService, ScheduledService>();
 builder.Services.AddScoped<IWorkoutSessionService, WorkoutSessionService>();
 builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();

@@ -1,30 +1,27 @@
 using Application.Abstractions;
 using Application.DTOs;
 using Domain.Enums;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
-using Application.Common.Security;
 
 namespace Application.Services;
 
 public sealed class FriendWorkoutService : IFriendWorkoutService
 {
     private readonly IApplicationDbContext _db;
-    private readonly IHttpContextAccessor _http;
+    private readonly ICurrentUserService _currentUser;
     private readonly IFriendshipService _friends; 
 
     public FriendWorkoutService(
         IApplicationDbContext db, 
-        IHttpContextAccessor http, 
+        ICurrentUserService currentUser, 
         IFriendshipService friends)
     {
         _db = db;
-        _http = http;
+        _currentUser = currentUser;
         _friends = friends;
     }
 
-    private Guid UserId => _http.HttpContext?.User.GetUserId() 
-                           ?? throw new UnauthorizedAccessException();
+    private Guid UserId => _currentUser.UserId;
 
     public async Task<IReadOnlyList<FriendScheduledWorkoutDto>> GetFriendsScheduledAsync(
         DateOnly fromDate,

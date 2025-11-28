@@ -4,7 +4,6 @@ using Application.Services;
 using Domain.Entities;
 using FluentAssertions;
 using Infrastructure.Persistence;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Moq;
 using System.ComponentModel.DataAnnotations;
@@ -14,7 +13,7 @@ namespace Application.UnitTests.Services;
 public class UserProfileTargetWeightTests
 {
     private readonly AppDbContext _dbContext;
-    private readonly Mock<IHttpContextAccessor> _httpContextAccessorMock;
+    private readonly Mock<ICurrentUserService> _currentUserMock;
     private readonly Mock<IPasswordHasher> _passwordHasherMock;
     private readonly UserProfileService _sut;
 
@@ -26,10 +25,10 @@ public class UserProfileTargetWeightTests
             .Options;
 
         _dbContext = new AppDbContext(options);
-        _httpContextAccessorMock = new Mock<IHttpContextAccessor>();
+        _currentUserMock = new Mock<ICurrentUserService>();
         _passwordHasherMock = new Mock<IPasswordHasher>();
         
-        _sut = new UserProfileService(_dbContext, _httpContextAccessorMock.Object, _passwordHasherMock.Object);
+        _sut = new UserProfileService(_dbContext, _currentUserMock.Object, _passwordHasherMock.Object);
     }
 
     [Fact]
@@ -301,12 +300,6 @@ public class UserProfileTargetWeightTests
     // Helper method
     private void SetupAuthenticatedUser(Guid userId)
     {
-        var claimsPrincipal = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity(new[]
-        {
-            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, userId.ToString())
-        }));
-        
-        var httpContext = new DefaultHttpContext { User = claimsPrincipal };
-        _httpContextAccessorMock.Setup(x => x.HttpContext).Returns(httpContext);
+        _currentUserMock.Setup(x => x.UserId).Returns(userId);
     }
 }

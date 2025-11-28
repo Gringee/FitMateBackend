@@ -17,10 +17,12 @@ namespace WebApi.Controllers;
 public class PlansController : ControllerBase
 {
     private readonly IPlanService _svc;
+    private readonly IPlanSharingService _sharingSvc;
 
-    public PlansController(IPlanService svc)
+    public PlansController(IPlanService svc, IPlanSharingService sharingSvc)
     {
         _svc = svc;
+        _sharingSvc = sharingSvc;
     }
 
     /// <summary>
@@ -204,7 +206,7 @@ public class PlansController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ShareToUser(Guid planId, Guid targetUserId, CancellationToken ct)
     {
-        await _svc.ShareToUserAsync(planId, targetUserId, ct);
+        await _sharingSvc.ShareToUserAsync(planId, targetUserId, ct);
         return Ok(new { message = "Plan shared successfully." });
     }
 
@@ -219,7 +221,7 @@ public class PlansController : ControllerBase
     [ProducesResponseType(typeof(IReadOnlyList<PlanDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<PlanDto>>> GetSharedWithMe(CancellationToken ct)
     {
-        var result = await _svc.GetSharedWithMeAsync(ct);
+        var result = await _sharingSvc.GetSharedWithMeAsync(ct);
         return Ok(result);
     }
 
@@ -234,7 +236,7 @@ public class PlansController : ControllerBase
     [ProducesResponseType(typeof(IReadOnlyList<SharedPlanDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<SharedPlanDto>>> GetPendingSharedPlans(CancellationToken ct)
     {
-        var items = await _svc.GetPendingSharedPlansAsync(ct);
+        var items = await _sharingSvc.GetPendingSharedPlansAsync(ct);
         return Ok(items);
     }
     
@@ -249,7 +251,7 @@ public class PlansController : ControllerBase
     [ProducesResponseType(typeof(IReadOnlyList<SharedPlanDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<SharedPlanDto>>> GetSentPendingSharedPlans(CancellationToken ct)
     {
-        var items = await _svc.GetSentPendingSharedPlansAsync(ct);
+        var items = await _sharingSvc.GetSentPendingSharedPlansAsync(ct);
         return Ok(items);
     }
 
@@ -279,7 +281,7 @@ public class PlansController : ControllerBase
         [FromBody] RespondSharedPlanRequest body,
         CancellationToken ct)
     {
-        await _svc.RespondToSharedPlanAsync(sharedPlanId, body.Accept, ct);
+        await _sharingSvc.RespondToSharedPlanAsync(sharedPlanId, body.Accept, ct);
         return Ok(new { message = body.Accept ? "Plan accepted." : "Plan rejected." });
     }
 
@@ -304,7 +306,7 @@ public class PlansController : ControllerBase
         [FromQuery] string? scope,
         CancellationToken ct)
     {
-        var items = await _svc.GetSharedHistoryAsync(scope, ct);
+        var items = await _sharingSvc.GetSharedHistoryAsync(scope, ct);
         return Ok(items);
     }
     
@@ -330,7 +332,7 @@ public class PlansController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteSharedPlan(Guid sharedPlanId, [FromQuery] bool onlyPending = false, CancellationToken ct = default)
     {
-        await _svc.DeleteSharedPlanAsync(sharedPlanId, onlyPending, ct);
+        await _sharingSvc.DeleteSharedPlanAsync(sharedPlanId, onlyPending, ct);
         return NoContent();
     }
 }

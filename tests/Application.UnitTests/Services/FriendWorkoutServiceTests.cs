@@ -5,7 +5,6 @@ using Domain.Entities;
 using Domain.Enums;
 using FluentAssertions;
 using Infrastructure.Persistence;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Moq;
 
@@ -14,7 +13,7 @@ namespace Application.UnitTests.Services;
 public class FriendWorkoutServiceTests
 {
     private readonly AppDbContext _dbContext;
-    private readonly Mock<IHttpContextAccessor> _httpContextAccessorMock;
+    private readonly Mock<ICurrentUserService> _currentUserMock;
     private readonly Mock<IFriendshipService> _friendshipServiceMock;
     private readonly FriendWorkoutService _sut;
 
@@ -26,10 +25,10 @@ public class FriendWorkoutServiceTests
             .Options;
 
         _dbContext = new AppDbContext(options);
-        _httpContextAccessorMock = new Mock<IHttpContextAccessor>();
+        _currentUserMock = new Mock<ICurrentUserService>();
         _friendshipServiceMock = new Mock<IFriendshipService>();
         
-        _sut = new FriendWorkoutService(_dbContext, _httpContextAccessorMock.Object, _friendshipServiceMock.Object);
+        _sut = new FriendWorkoutService(_dbContext, _currentUserMock.Object, _friendshipServiceMock.Object);
     }
 
     [Fact]
@@ -391,12 +390,6 @@ public class FriendWorkoutServiceTests
     // Helper method
     private void SetupAuthenticatedUser(Guid userId)
     {
-        var claimsPrincipal = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity(new[]
-        {
-            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, userId.ToString())
-        }));
-        
-        var httpContext = new DefaultHttpContext { User = claimsPrincipal };
-        _httpContextAccessorMock.Setup(x => x.HttpContext).Returns(httpContext);
+        _currentUserMock.Setup(x => x.UserId).Returns(userId);
     }
 }
