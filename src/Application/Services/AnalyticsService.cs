@@ -77,7 +77,7 @@ public sealed class AnalyticsService : IAnalyticsService
         var flatQuery = baseQuery
             .SelectMany(ws => ws.Exercises.SelectMany(se => se.Sets.Select(ss => new
             {
-                Date = ws.StartedAtUtc.Date,
+                Date = ws.StartedAtUtc,
                 ExerciseName = se.Name,
                 Volume = (decimal)((ss.RepsDone ?? 0) * (double)(ss.WeightDone ?? 0))
             })));
@@ -87,9 +87,11 @@ public sealed class AnalyticsService : IAnalyticsService
             flatQuery = flatQuery.Where(x => x.ExerciseName == exerciseName);
         }
 
+        var rawData = await flatQuery.ToListAsync(ct);
+
         if (groupBy == "exercise")
         {
-            return await flatQuery
+            return rawData
                 .GroupBy(x => x.ExerciseName)
                 .Select(g => new TimePointDto
                 {
@@ -98,18 +100,18 @@ public sealed class AnalyticsService : IAnalyticsService
                     Value = g.Sum(x => x.Volume)
                 })
                 .OrderByDescending(x => x.Value)
-                .ToListAsync(ct);
+                .ToList();
         }
 
-        var dailyData = await flatQuery
-            .GroupBy(x => x.Date)
+        var dailyData = rawData
+            .GroupBy(x => x.Date.Date)
             .Select(g => new
             {
                 Date = g.Key,
                 TotalVolume = g.Sum(x => x.Volume)
             })
             .OrderBy(x => x.Date)
-            .ToListAsync(ct);
+            .ToList();
 
         if (groupBy == "week")
         {

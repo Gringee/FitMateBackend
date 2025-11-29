@@ -96,4 +96,27 @@ public sealed class UserService : IUserService
 
         await _db.SaveChangesAsync(ct);
     }
+    public async Task<IReadOnlyList<UserSummaryDto>> SearchAsync(string filter, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(filter))
+        {
+            return Array.Empty<UserSummaryDto>();
+        }
+
+        var term = filter.Trim().ToLower();
+        
+        return await _db.Users
+            .AsNoTracking()
+            .Where(u =>
+                (u.FullName != null && u.FullName.ToLower().Contains(term)) ||
+                u.Email.ToLower().Contains(term) ||
+                u.UserName.ToLower().Contains(term))
+            .OrderBy(u => u.UserName)
+            .Select(u => new UserSummaryDto
+            {
+                UserName = u.UserName,
+                FullName = u.FullName ?? string.Empty
+            })
+            .ToListAsync(ct);
+    }
 }
