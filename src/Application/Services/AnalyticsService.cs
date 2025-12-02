@@ -92,14 +92,13 @@ public sealed class AnalyticsService : IAnalyticsService
 
         if (groupBy == "exercise")
         {
-            // Use the query date range as Period to keep it semantically consistent
             var periodRange = $"{fromUtc.ToString("yyyy-MM-dd")} to {toUtc.ToString("yyyy-MM-dd")}";
             
             return rawData
                 .GroupBy(x => x.ExerciseName)
                 .Select(g => new TimePointDto
                 {
-                    Period = periodRange,  // Date range instead of exercise name
+                    Period = periodRange,  
                     ExerciseName = g.Key,
                     Value = g.Sum(x => x.Volume)
                 })
@@ -257,10 +256,10 @@ public sealed class AnalyticsService : IAnalyticsService
             .ToListAsync(ct);
 
         var exercises = exerciseData
-            .GroupBy(x => x.Name.ToLower())  // Case-insensitive grouping
+            .GroupBy(x => x.Name.ToLower())  
             .Select(g => new ExerciseSummaryDto
             {
-                Name = g.First().Name,  // Use first variant's casing
+                Name = g.First().Name,  
                 WorkoutCount = g.Count(),
                 FirstPerformedUtc = g.Min(x => x.Date),
                 LastPerformedUtc = g.Max(x => x.Date)

@@ -158,7 +158,6 @@ public sealed class ScheduledService : IScheduledService
 
         await _db.SaveChangesAsync(ct);
         
-        // Reload with exercises for return
         var updated = await _db.ScheduledWorkouts
             .Include(s => s.Exercises).ThenInclude(e => e.Sets)
             .FirstAsync(s => s.Id == existing.Id, ct);

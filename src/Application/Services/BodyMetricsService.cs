@@ -27,7 +27,6 @@ public class BodyMetricsService : IBodyMetricsService
     {
         var userId = _currentUser.UserId;
 
-        // Calculate BMI
         var heightM = dto.HeightCm / 100m;
         var bmi = dto.WeightKg / (heightM * heightM);
 
@@ -88,11 +87,6 @@ public class BodyMetricsService : IBodyMetricsService
     {
         var userId = _currentUser.UserId;
 
-        // Note: For stats, we might want the raw latest measurement for accurate weight change,
-        // or the composite one. Usually stats like "Current Weight" should be the latest recorded.
-        // "Current BMI" also. 
-        // If we use GetCompositeMeasurementAsync, we get filled-in body fat etc, but Weight/Height/BMI 
-        // are still from the latest record. So it is safe to use.
         var latest = await GetCompositeMeasurementAsync(userId, ct);
         
         var thirtyDaysAgo = DateTime.UtcNow.AddDays(-30);
@@ -163,14 +157,12 @@ public class BodyMetricsService : IBodyMetricsService
     {
         var currentUserId = _currentUser.UserId;
 
-        // 1. Check if they are friends
         var areFriends = await _friends.AreFriendsAsync(currentUserId, friendId, ct);
         if (!areFriends)
         {
             throw new KeyNotFoundException("User is not your friend.");
         }
 
-        // 2. Check if friend shares biometrics
         var friend = await _db.Users
             .AsNoTracking()
             .FirstOrDefaultAsync(u => u.Id == friendId, ct);
@@ -185,7 +177,6 @@ public class BodyMetricsService : IBodyMetricsService
             return null;
         }
 
-        // 3. Get composite metrics
         return await GetCompositeMeasurementAsync(friendId, ct);
     }
 

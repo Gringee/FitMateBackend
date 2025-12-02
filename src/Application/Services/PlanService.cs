@@ -93,25 +93,21 @@ public sealed class PlanService : IPlanService
     {
         var userId = UserId;
 
-        // Load plan WITHOUT exercises (avoid EF tracking issues)
         var plan = await _db.Plans
             .FirstOrDefaultAsync(p => p.Id == id && p.CreatedByUserId == userId, ct);
 
         if (plan is null) return null;
 
-        // Update plan properties
         plan.PlanName = dto.PlanName;
         plan.Type = dto.Type;
         plan.Notes = dto.Notes;
 
-        // Delete old exercises via direct query (without loading them with Include)
         var oldExercises = await _db.PlanExercises
             .Where(e => e.PlanId == id)
             .ToListAsync(ct);
         
         _db.PlanExercises.RemoveRange(oldExercises);
 
-        // Add new exercises if provided
         if (dto.Exercises is { Count: > 0 })
         {
             var newExercises = CreateExercisesFromDto(dto.Exercises, id);
@@ -120,7 +116,6 @@ public sealed class PlanService : IPlanService
 
         await _db.SaveChangesAsync(ct);
         
-        // Reload with exercises for return
         return await GetByIdAsync(id, ct);
     }
 
@@ -339,7 +334,7 @@ public sealed class PlanService : IPlanService
     private static List<PlanExercise> CreateExercisesFromPlan(Plan sourcePlan, Guid targetPlanId)
     {
         var list = new List<PlanExercise>();
-        // PlanExercise does not have an Order property, so we iterate as is.
+        
         foreach (var ex in sourcePlan.Exercises)
         {
             var pe = new PlanExercise
