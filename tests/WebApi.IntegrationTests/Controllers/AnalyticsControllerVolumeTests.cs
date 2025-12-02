@@ -52,6 +52,10 @@ public class AnalyticsControllerVolumeTests : BaseIntegrationTest
         
         // Verify dates are different
         result!.Select(x => x.Period).Distinct().Should().HaveCount(2);
+        
+        // Verify format is yyyy-MM-dd
+        result.All(x => System.Text.RegularExpressions.Regex.IsMatch(x.Period, @"^\d{4}-\d{2}-\d{2}$"))
+            .Should().BeTrue("because Period should be in yyyy-MM-dd format");
     }
 
     private async Task<string> RegisterAndGetTokenAsync()

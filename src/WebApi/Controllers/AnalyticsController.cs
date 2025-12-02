@@ -188,4 +188,29 @@ public class AnalyticsController : ControllerBase
         var items = await _svc.GetPlanVsActualAsync(query.SessionId, ct);
         return Ok(items);
     }
+
+    /// <summary>
+    /// Pobiera listę wszystkich ćwiczeń wykonanych przez użytkownika.
+    /// </summary>
+    /// <remarks>
+    /// Zwraca znormalizowaną listę unikalnych ćwiczeń (case-insensitive).
+    /// Każde ćwiczenie zawiera metadane: liczba treningów, pierwsze i ostatnie wykonanie.
+    /// </remarks>
+    /// <param name="fromUtc">Opcjonalna data początkowa (UTC).</param>
+    /// <param name="toUtc">Opcjonalna data końcowa (UTC).</param>
+    /// <param name="ct">Token anulowania operacji.</param>
+    /// <returns>Lista ćwiczeń z metadanymi.</returns>
+    /// <response code="200">Lista ćwiczeń została pobrana.</response>
+    /// <response code="401">Użytkownik niezalogowany.</response>
+    [HttpGet("exercises")]
+    [ProducesResponseType(typeof(IReadOnlyList<ExerciseSummaryDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<IReadOnlyList<ExerciseSummaryDto>>> GetExercises(
+        [FromQuery] DateTime? fromUtc,
+        [FromQuery] DateTime? toUtc,
+        CancellationToken ct)
+    {
+        var exercises = await _svc.GetExercisesAsync(fromUtc, toUtc, ct);
+        return Ok(exercises);
+    }
 }

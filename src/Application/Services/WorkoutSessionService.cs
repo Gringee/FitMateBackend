@@ -94,8 +94,23 @@ public sealed class WorkoutSessionService : IWorkoutSessionService
         }
 
         var now = DateTime.UtcNow;
-        var startedAt = req.StartedAtUtc ?? now;
-        var completedAt = req.CompletedAtUtc ?? now;
+        
+        // Use scheduled date/time as the default for StartedAtUtc
+        DateTime scheduledDateTime;
+        if (sch.Time.HasValue)
+        {
+            // Combine Date and Time into a DateTime (assuming local time, then convert to UTC)
+            var localDateTime = sch.Date.ToDateTime(sch.Time.Value);
+            scheduledDateTime = DateTime.SpecifyKind(localDateTime, DateTimeKind.Utc);
+        }
+        else
+        {
+            // If no time specified, use noon of the scheduled date
+            scheduledDateTime = DateTime.SpecifyKind(sch.Date.ToDateTime(new TimeOnly(12, 0)), DateTimeKind.Utc);
+        }
+
+        var startedAt = req.StartedAtUtc ?? scheduledDateTime;
+        var completedAt = req.CompletedAtUtc ?? scheduledDateTime.AddHours(1); // Assume 1 hour duration
 
         if (completedAt < startedAt)
         {

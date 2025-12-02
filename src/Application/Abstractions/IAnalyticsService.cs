@@ -9,4 +9,5 @@ public interface IAnalyticsService
     Task<IReadOnlyList<E1rmPointDto>> GetE1RmAsync(string exerciseName, DateTime fromUtc, DateTime toUtc, CancellationToken ct);
     Task<AdherenceDto> GetAdherenceAsync(DateOnly fromDate, DateOnly toDate, CancellationToken ct);
     Task<IReadOnlyList<PlanVsActualItemDto>> GetPlanVsActualAsync(Guid sessionId, CancellationToken ct);
+    Task<IReadOnlyList<ExerciseSummaryDto>> GetExercisesAsync(DateTime? fromUtc, DateTime? toUtc, CancellationToken ct);
 }

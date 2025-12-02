@@ -79,23 +79,27 @@ public sealed class AnalyticsService : IAnalyticsService
             {
                 Date = ws.StartedAtUtc,
                 ExerciseName = se.Name,
-                Volume = (decimal)((ss.RepsDone ?? 0) * (double)(ss.WeightDone ?? 0))
+                Volume = (decimal)(ss.RepsDone ?? 0) * (ss.WeightDone ?? 0)
             })));
 
         if (!string.IsNullOrWhiteSpace(exerciseName))
         {
-            flatQuery = flatQuery.Where(x => x.ExerciseName == exerciseName);
+            var nameLower = exerciseName.ToLower();
+            flatQuery = flatQuery.Where(x => x.ExerciseName.ToLower() == nameLower);
         }
 
         var rawData = await flatQuery.ToListAsync(ct);
 
         if (groupBy == "exercise")
         {
+            // Use the query date range as Period to keep it semantically consistent
+            var periodRange = $"{fromUtc.ToString("yyyy-MM-dd")} to {toUtc.ToString("yyyy-MM-dd")}";
+            
             return rawData
                 .GroupBy(x => x.ExerciseName)
                 .Select(g => new TimePointDto
                 {
-                    Period = g.Key,
+                    Period = periodRange,  // Date range instead of exercise name
                     ExerciseName = g.Key,
                     Value = g.Sum(x => x.Volume)
                 })
@@ -120,7 +124,8 @@ public sealed class AnalyticsService : IAnalyticsService
                 .Select(g => new TimePointDto
                 {
                     Period = g.Key,
-                    Value = g.Sum(x => x.TotalVolume)
+                    Value = g.Sum(x => x.TotalVolume),
+                    ExerciseName = exerciseName
                 })
                 .ToList();
         }
@@ -129,7 +134,8 @@ public sealed class AnalyticsService : IAnalyticsService
             .Select(x => new TimePointDto
             {
                 Period = x.Date.ToString("yyyy-MM-dd"),
-                Value = x.TotalVolume
+                Value = x.TotalVolume,
+                ExerciseName = exerciseName
             })
             .ToList();
     }
@@ -154,21 +160,28 @@ public sealed class AnalyticsService : IAnalyticsService
                         CalculatedE1RM = (decimal)ss.WeightDone! * (1 + (decimal)ss.RepsDone! / 30m)
                     })));
 
-        var groupedData = await query
+        var rawData = await query.ToListAsync(ct);
+
+        var groupedData = rawData
             .GroupBy(x => x.Date)
-            .Select(g => new 
+            .Select(g => 
             {
-                Day = g.Key,
-                MaxE1RM = g.Max(x => x.CalculatedE1RM)
+                var maxItem = g.OrderByDescending(x => x.CalculatedE1RM).First();
+                return new 
+                {
+                    Day = g.Key,
+                    MaxE1RM = maxItem.CalculatedE1RM,
+                    SessionId = maxItem.SessionId
+                };
             })
             .OrderBy(x => x.Day)
-            .ToListAsync(ct);
+            .ToList();
 
         return groupedData.Select(x => new E1rmPointDto
         {
             Day = DateOnly.FromDateTime(x.Day),
             E1Rm = Math.Round(x.MaxE1RM, 2),
-            SessionId = null 
+            SessionId = x.SessionId
         }).ToList();
     }
 
@@ -219,5 +232,42 @@ public sealed class AnalyticsService : IAnalyticsService
             .ToListAsync(ct);
 
         return items;
+    }
+
+    public async Task<IReadOnlyList<ExerciseSummaryDto>> GetExercisesAsync(DateTime? fromUtc, DateTime? toUtc, CancellationToken ct)
+    {
+        var userId = CurrentUserId();
+        
+        var query = _db.WorkoutSessions
+            .AsNoTracking()
+            .Where(ws => ws.UserId == userId && ws.CompletedAtUtc != null);
+        
+        if (fromUtc.HasValue)
+            query = query.Where(ws => ws.StartedAtUtc >= fromUtc.Value);
+        
+        if (toUtc.HasValue)
+            query = query.Where(ws => ws.StartedAtUtc <= toUtc.Value);
+        
+        var exerciseData = await query
+            .SelectMany(ws => ws.Exercises.Select(e => new 
+            { 
+                Name = e.Name, 
+                Date = ws.StartedAtUtc 
+            }))
+            .ToListAsync(ct);
+
+        var exercises = exerciseData
+            .GroupBy(x => x.Name.ToLower())  // Case-insensitive grouping
+            .Select(g => new ExerciseSummaryDto
+            {
+                Name = g.First().Name,  // Use first variant's casing
+                WorkoutCount = g.Count(),
+                FirstPerformedUtc = g.Min(x => x.Date),
+                LastPerformedUtc = g.Max(x => x.Date)
+            })
+            .OrderBy(e => e.Name)
+            .ToList();
+        
+        return exercises;
     }
 }

@@ -99,7 +99,7 @@ public class AnalyticsServiceTests
 
         // Assert
         result.Should().HaveCount(1);
-        result.First().Period.Should().Be(DateTime.UtcNow.ToString("yyyy-MM-dd"));
+        result.First().Period.Should().Be(DateTime.UtcNow.Date.ToString("yyyy-MM-dd"));
         result.First().Value.Should().Be(1000);
     }
 
@@ -156,6 +156,81 @@ public class AnalyticsServiceTests
 
         // Assert
         result.Should().HaveCount(1);
+        result.First().Value.Should().Be(1000);
+    }
+
+    [Fact]
+    public async Task GetVolumeAsync_ShouldFilterByExerciseName_CaseInsensitive()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+
+        await CreateCompletedSessionAsync(userId, DateTime.UtcNow, 100, 10, "Squat");
+
+        // Act - Search with lowercase "squat"
+        var result = await _sut.GetVolumeAsync(DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddDays(1), "day", "squat", CancellationToken.None);
+
+        // Assert
+        result.Should().HaveCount(1);
+        result.First().Value.Should().Be(1000);
+        result.First().ExerciseName.Should().Be("squat"); // Should return the query param
+    }
+
+    [Fact]
+    public async Task GetVolumeAsync_ShouldIncludeExerciseName_WhenFilteredByExerciseAndGroupedByDay()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+
+        await CreateCompletedSessionAsync(userId, DateTime.UtcNow, 100, 10, "Squat");
+        await CreateCompletedSessionAsync(userId, DateTime.UtcNow, 50, 10, "Bench");
+
+        // Act
+        var result = await _sut.GetVolumeAsync(DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddDays(1), "day", "Squat", CancellationToken.None);
+
+        // Assert
+        result.Should().HaveCount(1);
+        result.First().ExerciseName.Should().Be("Squat");
+        result.First().Value.Should().Be(1000);
+    }
+
+    [Fact]
+    public async Task GetVolumeAsync_ShouldIncludeExerciseName_WhenFilteredByExerciseAndGroupedByWeek()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+
+        var date = DateTime.UtcNow;
+        await CreateCompletedSessionAsync(userId, date, 100, 10, "Bench Press");
+
+        // Act
+        var result = await _sut.GetVolumeAsync(date.AddDays(-1), date.AddDays(1), "week", "Bench Press", CancellationToken.None);
+
+        // Assert
+        result.Should().HaveCount(1);
+        result.First().ExerciseName.Should().Be("Bench Press");
+        result.First().Period.Should().Contain("-W");
+        result.First().Value.Should().Be(1000);
+    }
+
+    [Fact]
+    public async Task GetVolumeAsync_ShouldHaveNullExerciseName_WhenNoFilterAndGroupedByDay()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+
+        await CreateCompletedSessionAsync(userId, DateTime.UtcNow, 100, 10, "Squat");
+
+        // Act
+        var result = await _sut.GetVolumeAsync(DateTime.UtcNow.AddDays(-1), DateTime.UtcNow.AddDays(1), "day", null, CancellationToken.None);
+
+        // Assert
+        result.Should().HaveCount(1);
+        result.First().ExerciseName.Should().BeNull();
         result.First().Value.Should().Be(1000);
     }
 
