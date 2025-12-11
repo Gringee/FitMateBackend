@@ -349,6 +349,7 @@ Response 200 OK:
 | POST | `/shared/{sharedId}/respond` | Odpowiedź na zaproszenie |
 | GET | `/shared/history` | Historia udostępnień |
 | DELETE | `/shared/{sharedId}` | Usunięcie udostępnienia |
+| DELETE | `/shared/by-plan/{planId}` | Usunięcie udostępnienia po ID planu (frontend convenience) |
 
 **Przykład: Create Plan**
 ```http

@@ -771,7 +771,8 @@ public class AuthResponse
 public class PlanDto
 {
     public Guid Id { get; set; }
-    public string PlanName { get; set; }
+    public Guid? SharedPlanId { get; set; } // ID udostępnienia (jeśli jest to plan udostępniony)
+    public string PlanName { get; set; } = null!;
     public string Type { get; set; }
     public string? Notes { get; set; }
     public List<ExerciseDto> Exercises { get; set; }

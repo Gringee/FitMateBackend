@@ -16,5 +16,6 @@ public interface IPlanService
     Task<IReadOnlyList<SharedPlanDto>> GetPendingSharedPlansAsync(CancellationToken ct);
     Task<IReadOnlyList<SharedPlanDto>> GetSharedHistoryAsync(string? scope, CancellationToken ct);
     Task DeleteSharedPlanAsync(Guid sharedPlanId, bool onlyIfPending, CancellationToken ct = default);
+    Task DeleteSharedPlanByPlanIdAsync(Guid planId, CancellationToken ct = default);
     Task<IReadOnlyList<SharedPlanDto>> GetSentPendingSharedPlansAsync(CancellationToken ct);
 }

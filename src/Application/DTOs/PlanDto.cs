@@ -45,6 +45,7 @@ public class ExerciseDto : IValidatableObject
 public class PlanDto
 {
     public Guid Id { get; set; }
+    public Guid? SharedPlanId { get; set; }
     public string PlanName { get; set; } = null!;
     public string Type { get; set; } = null!;
     public string? Notes { get; set; }

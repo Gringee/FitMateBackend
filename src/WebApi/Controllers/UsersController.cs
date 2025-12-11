@@ -239,48 +239,10 @@ public class UsersController : ControllerBase
     /// <param name="filter">Fraza wyszukiwania (wymagana).</param>
     /// <param name="ct">Token anulowania operacji.</param>
     /// <returns>Lista znalezionych użytkowników (Username, Fullname).</returns>
+    /// <response code="200">Lista użytkowników.</response>
     [HttpGet("search")]
-    [Authorize] // Overrides class-level [Authorize(Roles = "Admin")] ? No, it adds to it. We need to allow non-admins.
-    // Wait, the class has [Authorize(Roles = "Admin")]. To allow regular users, we might need [AllowAnonymous] but that's not right.
-    // We need to override the role requirement.
-    // Actually, [Authorize] on method does NOT override class level [Authorize(Roles="Admin")].
-    // We should probably move this endpoint to a different controller or adjust the class level attribute.
-    // However, looking at the existing controller, it seems designed for Admin management.
-    // The user request says "udostepnić endpoint, który wszystkim użytkownikom zwrci...".
-    // So regular users should access it.
-    // If I put it here, I have to deal with the class-level attribute.
-    // I can't easily override "Roles=Admin" with just attributes on the method in standard ASP.NET Core without policies.
-    // A common pattern is to have a separate controller for public/user-facing user operations, or remove the class-level attribute and apply it to specific methods.
-    // Given the existing structure, `UsersController` seems to be the "Admin" controller.
-    // Maybe `UserProfileController`? No, that's for "my profile".
-    // I will create a new controller `UserSearchController` or similar, OR modify `UsersController` to be more open.
-    // Let's modify `UsersController` to be open by default (or just [Authorize]) and restrict specific methods to Admin.
-    // This is a cleaner approach for a RESTful API where /api/users is the resource.
-    
-    // BUT, modifying the whole controller might be risky if I miss an endpoint.
-    // Let's check the existing endpoints.
-    // GetAll -> Admin
-    // Create -> Admin
-    // Update -> Admin (updates ANY user)
-    // AssignRole -> Admin
-    // Delete -> Admin
-    // ResetPassword -> Admin
-    
-    // So almost everything is Admin.
-    // If I change the class attribute to [Authorize], I must add [Authorize(Roles="Admin")] to ALL existing methods.
-    
-    // Alternative: Create a new controller `DirectoryController` or `UserSearchController`.
-    // Or just put it in `UsersController` and fix the auth.
-    // I'll go with fixing `UsersController` because `/api/users/search` belongs there logically.
-    
-    // Step 1: Remove [Authorize(Roles = "Admin")] from class. Add [Authorize].
-    // Step 2: Add [Authorize(Roles = "Admin")] to all existing methods.
-    // Step 3: Add the new method with just [Authorize].
-    
-    // Let's do this in multiple steps. First, let's just add the method code here, but I'll comment it out or put it in a way that I can then fix the attributes.
-    // Actually, I can do it all in one replace if I'm careful, or multiple replaces.
-    // Let's start by adding the method at the end, then I'll fix the attributes.
-    
+    [Authorize]
+    [ProducesResponseType(typeof(IReadOnlyList<UserSummaryDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<UserSummaryDto>>> Search([FromQuery] string filter, CancellationToken ct)
     {
         var result = await _userService.SearchAsync(filter, ct);

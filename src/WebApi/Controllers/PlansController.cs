@@ -333,4 +333,24 @@ public class PlansController : ControllerBase
         await _svc.DeleteSharedPlanAsync(sharedPlanId, onlyPending, ct);
         return NoContent();
     }
+
+    /// <summary>
+    /// Usuwa udostępniony plan na podstawie ID planu (wygodne dla frontendu).
+    /// </summary>
+    /// <remarks>
+    /// Usuwa wpis udostępnienia (SharedPlan) dla zalogowanego użytkownika na podstawie ID planu.
+    /// Działa to analogicznie do usunięcia przez ID udostępnienia, ale pozwala frontendowi użyć ID planu, który już zna.
+    /// </remarks>
+    /// <param name="planId">Identyfikator planu (nie SharedPlanId).</param>
+    /// <param name="ct">Token anulowania operacji.</param>
+    /// <response code="204">Udostępnienie usunięte.</response>
+    /// <response code="404">Nie znaleziono wpisu udostępnienia dla tego planu.</response>
+    [HttpDelete("shared/by-plan/{planId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteSharedByPlanId(Guid planId, CancellationToken ct)
+    {
+        await _svc.DeleteSharedPlanByPlanIdAsync(planId, ct);
+        return NoContent();
+    }
 }

@@ -58,22 +58,24 @@ public sealed class PlanService : IPlanService
             .ToListAsync(ct);
         
         if (!includeShared)
-            return ownedPlans.Select(Map).ToList();
+            return ownedPlans.Select(p => Map(p)).ToList();
         
         var sharedPlans = await _db.SharedPlans
             .Include(sp => sp.Plan).ThenInclude(p => p.Exercises).ThenInclude(e => e.Sets)
             .Where(sp => sp.SharedWithUserId == userId && sp.Status == RequestStatus.Accepted)
-            .Select(sp => sp.Plan)
             .AsNoTracking()
             .ToListAsync(ct);
+
+        var ownedDtos = ownedPlans.Select(p => Map(p));
+        var sharedDtos = sharedPlans.Select(sp => Map(sp.Plan, sp.Id));
         
-        var allPlans = ownedPlans
-            .Concat(sharedPlans)
+        var allPlans = ownedDtos
+            .Concat(sharedDtos)
             .GroupBy(p => p.Id)
             .Select(g => g.First())
             .ToList();
 
-        return allPlans.Select(Map).ToList();
+        return allPlans;
     }
 
     public async Task<PlanDto?> GetByIdAsync(Guid id, CancellationToken ct = default)
@@ -190,14 +192,13 @@ public sealed class PlanService : IPlanService
     {
         var myId = UserId;
 
-        var plans = await _db.SharedPlans
+        var sharedPlans = await _db.SharedPlans
             .Include(sp => sp.Plan).ThenInclude(p => p.Exercises).ThenInclude(e => e.Sets)
             .Where(sp => sp.SharedWithUserId == myId && sp.Status == RequestStatus.Accepted) 
             .AsNoTracking()
-            .Select(sp => sp.Plan)
             .ToListAsync(ct);
 
-        return plans.Select(Map).ToList();
+        return sharedPlans.Select(sp => Map(sp.Plan, sp.Id)).ToList();
     }
     
     public async Task RespondToSharedPlanAsync(Guid sharedPlanId, bool accept, CancellationToken ct)
@@ -302,6 +303,19 @@ public sealed class PlanService : IPlanService
         await _db.SaveChangesAsync(ct);
     }
 
+    public async Task DeleteSharedPlanByPlanIdAsync(Guid planId, CancellationToken ct = default)
+    {
+        var userId = UserId;
+        var sp = await _db.SharedPlans
+            .FirstOrDefaultAsync(sp => sp.PlanId == planId && sp.SharedWithUserId == userId, ct);
+
+        if (sp is null)
+            throw new KeyNotFoundException("Shared plan not found or you don't have permission.");
+
+        _db.SharedPlans.Remove(sp);
+        await _db.SaveChangesAsync(ct);
+    }
+
     private static List<PlanExercise> CreateExercisesFromDto(IEnumerable<ExerciseDto> dtos, Guid planId)
     {
         var list = new List<PlanExercise>();
@@ -362,9 +376,10 @@ public sealed class PlanService : IPlanService
         return list;
     }
 
-    private static PlanDto Map(Plan p) => new()
+    private static PlanDto Map(Plan p, Guid? sharedPlanId = null) => new()
     {
         Id = p.Id,
+        SharedPlanId = sharedPlanId,
         PlanName = p.PlanName,
         Type = p.Type,
         Notes = p.Notes,

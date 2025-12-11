@@ -424,6 +424,51 @@ public class PlanServiceTests
         // Assert
         result.Should().HaveCount(1);
         result.First().PlanName.Should().Be("Shared Plan");
+        result.First().SharedPlanId.Should().Be(sharedPlan.Id);
+    }
+
+    [Fact]
+    public async Task DeleteSharedPlanByPlanIdAsync_ShouldDelete_WhenFound()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var otherUserId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+
+        var plan = new Plan { Id = Guid.NewGuid(), CreatedByUserId = otherUserId, PlanName = "Shared", Type = "FBW" };
+        _dbContext.Plans.Add(plan);
+
+        var sharedPlan = new SharedPlan
+        {
+            Id = Guid.NewGuid(),
+            PlanId = plan.Id,
+            SharedByUserId = otherUserId,
+            SharedWithUserId = userId,
+            Status = RequestStatus.Accepted
+        };
+        _dbContext.SharedPlans.Add(sharedPlan);
+        await _dbContext.SaveChangesAsync();
+
+        // Act
+        await _sut.DeleteSharedPlanByPlanIdAsync(plan.Id, CancellationToken.None);
+
+        // Assert
+        var sp = await _dbContext.SharedPlans.FindAsync(sharedPlan.Id);
+        sp.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task DeleteSharedPlanByPlanIdAsync_ShouldThrow_WhenNotFound()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+
+        // Act
+        var act = async () => await _sut.DeleteSharedPlanByPlanIdAsync(Guid.NewGuid(), CancellationToken.None);
+
+        // Assert
+        await act.Should().ThrowAsync<KeyNotFoundException>();
     }
 
     [Fact]
