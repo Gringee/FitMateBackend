@@ -133,4 +133,16 @@ public sealed class UserProfileService : IUserProfileService
         user.ShareBiometricsWithFriends = shareWithFriends;
         await _db.SaveChangesAsync(ct);
     }
+
+    public async Task DeleteAccountAsync(DeleteAccountDto dto, CancellationToken ct)
+    {
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == UserId, ct)
+            ?? throw new KeyNotFoundException("User not found.");
+
+        if (!_hasher.VerifyPassword(dto.Password, user.PasswordHash))
+            throw new InvalidOperationException("Incorrect password.");
+
+        _db.Users.Remove(user);
+        await _db.SaveChangesAsync(ct);
+    }
 }

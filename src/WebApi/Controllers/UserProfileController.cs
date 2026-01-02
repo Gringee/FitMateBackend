@@ -212,4 +212,26 @@ public sealed class UserProfileController : ControllerBase
         await _svc.UpdateBiometricsPrivacyAsync(request.ShareWithFriends, ct);
         return NoContent();
     }
+
+    /// <summary>
+    /// Usuwa konto zalogowanego użytkownika.
+    /// </summary>
+    /// <remarks>
+    /// **Uwaga:** Operacja jest nieodwracalna. Wymaga podania hasła.
+    /// Wszystkie powiązane dane (plany, sesje treningowe, przyjaźnie, pomiary) zostaną automatycznie usunięte.
+    /// </remarks>
+    /// <param name="dto">Obiekt zawierający hasło użytkownika.</param>
+    /// <param name="ct">Token anulowania operacji.</param>
+    /// <response code="204">Konto zostało pomyślnie usunięte.</response>
+    /// <response code="400">Błąd walidacji lub nieprawidłowe hasło.</response>
+    /// <response code="401">Użytkownik niezalogowany.</response>
+    [HttpDelete]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> DeleteAccount([FromBody] DeleteAccountDto dto, CancellationToken ct)
+    {
+        await _svc.DeleteAccountAsync(dto, ct);
+        return NoContent();
+    }
 }

@@ -15,6 +15,14 @@ public class UserProfileControllerTests : BaseIntegrationTest
     {
     }
 
+    // Helper to send DELETE with body
+    private Task<HttpResponseMessage> DeleteAsJsonAsync<T>(string url, T content)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Delete, url);
+        request.Content = JsonContent.Create(content);
+        return Client.SendAsync(request);
+    }
+
     [Fact]
     public async Task GetMe_ShouldReturnUnauthorized_WhenUserIsNotAuthenticated()
     {
@@ -288,6 +296,81 @@ public class UserProfileControllerTests : BaseIntegrationTest
         var getResponse = await Client.GetAsync("/api/userprofile");
         var profile = await getResponse.Content.ReadFromJsonAsync<UserProfileDto>();
         profile!.ShareBiometricsWithFriends.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task DeleteAccount_ShouldReturn204NoContent_WhenPasswordIsCorrect()
+    {
+        // Arrange
+        var password = "SecurePass123!";
+        var registerRequest = new RegisterRequest
+        {
+            Email = $"testuser_{Guid.NewGuid()}@example.com",
+            UserName = $"testuser_{Guid.NewGuid().ToString().Substring(0, 8)}",
+            Password = password,
+            FullName = "Test User"
+        };
+
+        var response = await Client.PostAsJsonAsync("/api/auth/register", registerRequest);
+        var authResponse = await response.Content.ReadFromJsonAsync<AuthResponse>();
+        var token = authResponse!.AccessToken;
+        
+        Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var deleteRequest = new DeleteAccountDto { Password = password };
+
+        // Act
+        var deleteResponse = await DeleteAsJsonAsync("/api/userprofile", deleteRequest);
+
+        // Assert
+        deleteResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        // Verify user is gone (login fails)
+        var loginRequest = new LoginRequest
+        {
+            UserNameOrEmail = registerRequest.Email,
+            Password = password
+        };
+        var loginResponse = await Client.PostAsJsonAsync("/api/auth/login", loginRequest);
+        // Login endpoint returns 400 Bad Request for invalid credentials/user not found in this implementation
+        loginResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task DeleteAccount_ShouldReturn400BadRequest_WhenPasswordIsIncorrect()
+    {
+        // Arrange
+        var token = await RegisterAndGetTokenAsync();
+        Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var deleteRequest = new DeleteAccountDto { Password = "WrongPassword" };
+
+        // Act
+        var request = new HttpRequestMessage(HttpMethod.Delete, "/api/userprofile")
+        {
+            Content = JsonContent.Create(deleteRequest)
+        };
+        var response = await Client.SendAsync(request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest); // InvalidOperationException mapped to 400
+    }
+
+    [Fact]
+    public async Task DeleteAccount_ShouldReturn401Unauthorized_WhenNotAuthenticated()
+    {
+        // Arrange
+        var deleteRequest = new DeleteAccountDto { Password = "AnyPassword" };
+
+        // Act
+        var request = new HttpRequestMessage(HttpMethod.Delete, "/api/userprofile")
+        {
+            Content = JsonContent.Create(deleteRequest)
+        };
+        var response = await Client.SendAsync(request);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     private async Task<string> RegisterAndGetTokenAsync()

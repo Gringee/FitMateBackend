@@ -315,6 +315,84 @@ public class UserProfileServiceTests
             .WithMessage("User not found.");
     }
 
+    [Fact]
+    public async Task DeleteAccountAsync_ShouldDeleteUser_WhenPasswordIsCorrect()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+
+        var user = new User
+        {
+            Id = userId,
+            UserName = "testuser",
+            Email = "test@example.com",
+            PasswordHash = "hashed_password",
+            FullName = "Test User"
+        };
+        await _dbContext.Users.AddAsync(user);
+        await _dbContext.SaveChangesAsync();
+
+        var dto = new DeleteAccountDto { Password = "password" };
+        _passwordHasherMock.Setup(h => h.VerifyPassword("password", "hashed_password")).Returns(true);
+
+        // Act
+        await _sut.DeleteAccountAsync(dto, CancellationToken.None);
+
+        // Assert
+        var deletedUser = await _dbContext.Users.FindAsync(userId);
+        deletedUser.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task DeleteAccountAsync_ShouldThrowInvalidOperationException_WhenPasswordIsIncorrect()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+
+        var user = new User
+        {
+            Id = userId,
+            UserName = "testuser",
+            Email = "test@example.com",
+            PasswordHash = "hashed_password",
+            FullName = "Test User"
+        };
+        await _dbContext.Users.AddAsync(user);
+        await _dbContext.SaveChangesAsync();
+
+        var dto = new DeleteAccountDto { Password = "wrong_password" };
+        _passwordHasherMock.Setup(h => h.VerifyPassword("wrong_password", "hashed_password")).Returns(false);
+
+        // Act
+        Func<Task> act = async () => await _sut.DeleteAccountAsync(dto, CancellationToken.None);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("Incorrect password.");
+
+        var existingUser = await _dbContext.Users.FindAsync(userId);
+        existingUser.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task DeleteAccountAsync_ShouldThrowKeyNotFoundException_WhenUserDoesNotExist()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+        
+        var dto = new DeleteAccountDto { Password = "password" };
+
+        // Act
+        Func<Task> act = async () => await _sut.DeleteAccountAsync(dto, CancellationToken.None);
+
+        // Assert
+        await act.Should().ThrowAsync<KeyNotFoundException>()
+            .WithMessage("User not found.");
+    }
+
     // Helper method
     private void SetupAuthenticatedUser(Guid userId)
     {

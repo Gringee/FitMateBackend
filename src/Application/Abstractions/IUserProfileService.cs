@@ -10,4 +10,5 @@ public interface IUserProfileService
     Task<TargetWeightDto> GetTargetWeightAsync(CancellationToken ct);
     Task UpdateTargetWeightAsync(UpdateTargetWeightRequest request, CancellationToken ct);
     Task UpdateBiometricsPrivacyAsync(bool shareWithFriends, CancellationToken ct);
+    Task DeleteAccountAsync(DeleteAccountDto dto, CancellationToken ct);
 }
