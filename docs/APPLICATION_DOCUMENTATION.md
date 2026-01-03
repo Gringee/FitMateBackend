@@ -347,7 +347,7 @@ Task<PlanVsActualDto> GetPlanVsActualAsync(DateOnly from, DateOnly to, Cancellat
 **Funkcjonalność**:
 - ✅ **Overview** - Podsumowanie: total sessions, volume, streaks
 - ✅ **Volume** - Wykres volume by day/week/exercise
-- ✅ **E1RM** - Estimated 1RM progression (wzór Brzycki)
+- ✅ **E1RM** - Estimated 1RM progression (wzór Epleya)
 - ✅ **Adherence** - % ukończonych zaplanowanych treningów
 - ✅ **Plan vs Actual** - Porównanie planu do execution
 
@@ -360,7 +360,7 @@ Task<PlanVsActualDto> GetPlanVsActualAsync(DateOnly from, DateOnly to, Cancellat
 // Volume = Suma(Reps × Weight) dla wszystkich sets
 Volume = sessions.Sum(s => s.Sets.Sum(set => set.Reps * set.Weight));
 
-// E1RM (Brzycki formula)
+// E1RM (Epley formula)
 E1RM = Weight × (1 + Reps / 30);
 
 // Adherence Rate
@@ -479,6 +479,7 @@ Task<IReadOnlyList<FriendSessionDto>> GetFriendsSessionsAsync(
 Task<IReadOnlyList<UserDto>> GetAllAsync(string? search, CancellationToken ct);
 Task<UserDto> CreateAsync(CreateUserDto dto, CancellationToken ct);
 Task<UserDto?> UpdateAsync(Guid id, UpdateUserDto dto, CancellationToken ct);
+Task<IReadOnlyList<UserSummaryDto>> SearchAsync(string filter, CancellationToken ct);
 ```
 
 **Funkcjonalność**:
@@ -541,6 +542,7 @@ Task ChangePasswordAsync(ChangePasswordRequest request, CancellationToken ct);
 Task<TargetWeightDto> GetTargetWeightAsync(CancellationToken ct);
 Task UpdateTargetWeightAsync(UpdateTargetWeightRequest request, CancellationToken ct);
 Task UpdateBiometricsPrivacyAsync(bool shareWithFriends, CancellationToken ct);
+Task DeleteAccountAsync(DeleteAccountDto dto, CancellationToken ct);
 ```
 
 **Funkcjonalność**:
@@ -549,6 +551,7 @@ Task UpdateBiometricsPrivacyAsync(bool shareWithFriends, CancellationToken ct);
 - ✅ **Change Password** - Zmiana hasła (wymagane stare hasło)
 - ✅ **Target Weight** - Zarządzanie wagą docelową (40-200 kg)
 - ✅ **Biometrics Privacy** - Kontrola widoczności danych dla znajomych
+- ✅ **Delete Account** - Samodzielne usuwanie konta (wymaga hasła)
 
 **Reguły Biznesowe**:
 1. Walidacja aktualnego hasła przed zmianą
@@ -596,8 +599,19 @@ public class UserProfileDto
     public string FullName { get; set; }
     public string Email { get; set; }
     public IReadOnlyList<string> Roles { get; set; }
-    public decimal? TargetWeightKg { get; set; }  // NEW
-    public bool ShareBiometricsWithFriends { get; set; }  // NEW
+    public decimal? TargetWeightKg { get; set; }
+    public bool ShareBiometricsWithFriends { get; set; }
+}
+
+public class DeleteAccountDto
+{
+    public string Password { get; set; }
+}
+
+public class UserSummaryDto
+{
+    public string UserName { get; set; }
+    public string FullName { get; set; }
 }
 
 public class TargetWeightDto
@@ -789,6 +803,11 @@ public class SetDto
 {
     public int Reps { get; set; }
     public decimal Weight { get; set; }
+}
+
+public class RespondSharedPlanRequest
+{
+    public bool Accept { get; set; }
 }
 ```
 

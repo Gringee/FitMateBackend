@@ -60,9 +60,10 @@ Infrastructure/
     └── ... (6 więcej)
 │
 ├── Migrations/                # EF Core migrations
-│   ├── 20241120_Initial.cs
-│   ├── 20241121_AddFriendships.cs
-│   └── 20241122_AddSharedPlans.cs
+│   ├── 20251122154203_InitialCreate.cs
+│   ├── 20251124073146_AddBodyMeasurements.cs
+│   ├── 20251126085345_AddIsQuickCompleteToWorkoutSession.cs
+│   └── 20251126091619_AddTargetWeightAndBiometricsPrivacyToUser.cs
 │
 └── Infrastructure.csproj
 ```
@@ -553,10 +554,10 @@ dotnet ef migrations remove --startup-project ../WebApi
 ### Migration History
 
 **Migracje w projekcie**:
-1. `20241120_Initial` - Początkowa struktura (Users, Plans, Sessions)
-2. `20241121_AddFriendships` - Dodanie Friendship
-3. `20241122_AddSharedPlans` - Dodanie SharedPlan
-4. `20241126_AddTargetWeightAndBiometricsPrivacyToUser` - Dodanie TargetWeight i Privacy do User
+1. `20251122154203_InitialCreate` - Początkowa struktura (Users, Plans, Sessions, Friendships, SharedPlans)
+2. `20251124073146_AddBodyMeasurements` - Dodanie encji BodyMeasurement
+3. `20251126085345_AddIsQuickCompleteToWorkoutSession` - Dodanie flagi IsQuickComplete
+4. `20251126091619_AddTargetWeightAndBiometricsPrivacyToUser` - Dodanie TargetWeight i Privacy do User
 
 ### Automatyczne Migracje przy Starcie (Development)
 

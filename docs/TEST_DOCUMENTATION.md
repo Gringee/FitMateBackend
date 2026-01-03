@@ -40,15 +40,24 @@ tests/
 │   │   ├── AnalyticsServiceTests.cs
 │   │   ├── AuthServiceTests.cs
 │   │   ├── BodyMetricsServiceTests.cs
+│   │   ├── CurrentUserServiceTests.cs
 │   │   ├── FriendshipServiceTests.cs
 │   │   ├── FriendWorkoutServiceTests.cs
 │   │   ├── PlanServiceTests.cs
+│   │   ├── PlanServiceCoverageTests.cs
 │   │   ├── ScheduledServiceTests.cs
 │   │   ├── UserAdminServiceTests.cs
 │   │   ├── UserProfileServiceTests.cs
 │   │   ├── UserProfileTargetWeightTests.cs 
 │   │   ├── UserServiceTests.cs
-│   │   └── WorkoutSessionServiceTests.cs
+│   │   ├── UserValidationHelpersTests.cs
+│   │   ├── WorkoutSessionServiceTests.cs
+│   │   ├── WorkoutSessionServiceCoverageTests.cs
+│   │   └── WorkoutSessionServiceReopenTests.cs
+│   ├── Domain/                         # Testy wertykalne encji domenowych
+│   │   └── DomainEntitiesTests.cs
+│   ├── Validation/                     # Testy atrybutów walidacji
+│   │   └── StrongPasswordAttributeTests.cs
 │   └── Application.UnitTests.csproj
 │
 └── WebApi.IntegrationTests/            # Testy integracyjne API
@@ -57,6 +66,7 @@ tests/
     │   └── IntegrationTestWebAppFactory.cs  # Factory z Testcontainers
     ├── Controllers/                     # Testy kontrolerów
     │   ├── AnalyticsControllerTests.cs
+    │   ├── AnalyticsControllerVolumeTests.cs
     │   ├── AuthControllerTests.cs
     │   ├── BodyMetricsControllerTests.cs
     │   ├── FriendsControllerTests.cs
@@ -65,7 +75,8 @@ tests/
     │   ├── ScheduledControllerTests.cs
     │   ├── SessionsControllerTests.cs
     │   ├── UserProfileControllerTests.cs
-    │   └── UsersControllerTests.cs
+    │   ├── UsersControllerTests.cs
+    │   └── UsersControllerSearchTests.cs
     └── WebApi.IntegrationTests.csproj
 ```
 

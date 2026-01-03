@@ -356,6 +356,7 @@ public class WorkoutSession
     public int? DurationSec { get; set; }               // Czas trwania (sekundy)
     public WorkoutSessionStatus Status { get; set; }    // InProgress/Completed/Aborted
     public string? SessionNotes { get; set; }           // Notatki z sesji
+    public bool IsQuickComplete { get; set; }           // Czy sesja została "odkliknięta" 
     public Guid UserId { get; set; }                    // FK → User
     
     // Nawigacja

@@ -66,7 +66,7 @@ public class E1rmPointDto
     public DateOnly Day { get; set; }
     
     /// <summary>
-    /// Estimated 1-rep max value calculated using Brzycki formula.
+    /// Estimated 1-rep max value calculated using Epley formula.
     /// </summary>
     public decimal E1Rm { get; set; }
     

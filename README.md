@@ -7,7 +7,7 @@
 [![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql)](https://www.postgresql.org/)
 [![Tests](https://img.shields.io/badge/Tests-324%2F324_passing-success)](./docs/TEST_DOCUMENTATION.md)
-[![Coverage](https://img.shields.io/badge/Coverage-40.7%25-yellow)]()
+
 
 [Dokumentacja](#-dokumentacja) • [Architektura](#️-architektura) • [Funkcjonalności](#-funkcjonalności) • [Instalacja](#️-instalacja-i-uruchomienie)
 
@@ -231,7 +231,7 @@ graph TD
 
 #### E1RM (Estimated 1 Rep Max)
 - Progression chart
-- Wzór Brzycki: `E1RM = Weight × (1 + Reps / 30)`
+- Wzór Epleya: `E1RM = Weight × (1 + Reps / 30)`
 
 #### Adherence
 - % ukończonych zaplanowanych treningów
@@ -635,6 +635,31 @@ git commit -m "feat: Add new feature"
 git push origin feature/new-feature
 ```
 
+### Instalacja i Uruchomienie
+
+1.  **Wymagania:**
+    *   .NET 8 SDK
+    *   PostgreSQL
+
+2.  **Konfiguracja:**
+    *   Sklonuj repozytorium.
+    *   Skonfiguruj `appsettings.json` (lub User Secrets) podając connection string do bazy danych.
+    *   Wykonaj migracje: `dotnet ef database update --project src/Infrastructure --startup-project src/WebApi`.
+
+3.  **Uruchomienie (Opcja 1: .NET CLI):**
+    ```bash
+    dotnet run --project src/WebApi
+    ```
+    API będzie dostępne pod adresem `https://localhost:7082` (lub `http://localhost:5052`).
+
+4.  **Uruchomienie (Opcja 2: Docker - Zalecane):**
+    Projekt zawiera konfigurację Docker Compose, która automatycznie stawia bazę danych PostgreSQL oraz API.
+    ```bash
+    docker-compose up -d
+    ```
+    *   **API**: Dostępne pod `http://localhost:8080`.
+    *   **Baza danych**: Dostępna na porcie `5433` (użytkownik: `training`, hasło: `devpass`).
+    *   Aby zatrzymać: `docker-compose down`.
 ### 4. Database Migrations
 
 ```bash
@@ -762,17 +787,12 @@ export AllowedOrigins="https://fitmate.app,https://app.fitmate.io"
 
 ---
 
-## 📝 License
-
-MIT License - free to use and modify
-
----
 
 ## 👥 Team & Contributions
 
 Developed with ❤️ using .NET 8 and Clean Architecture principles.
 
-**Contributions welcome!** Please read contribution guidelines first.
+
 
 ---
 

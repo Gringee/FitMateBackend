@@ -40,13 +40,13 @@ WebApi/
 ├── Controllers/               # 9 kontrolerów API
 │   ├── AuthController.cs     # Autentykacja (Register, Login, Refresh, Logout)
 │   ├── PlansController.cs    # Plany treningowe + sharing
-│   ├── ScheduledWorkoutsController.cs # Kalendarz treningów
-│   ├── WorkoutSessionsController.cs # Sesje treningowe (wykonanie)
+│   ├── ScheduledController.cs    # Kalendarz treningów
+│   ├── SessionsController.cs     # Sesje treningowe (wykonanie)
 │   ├── AnalyticsController.cs # Statystyki i analityka
-│   ├── FriendshipsController.cs  # Znajomości
+│   ├── FriendsController.cs      # Znajomości
 │   ├── FriendWorkoutsController.cs # Treningi znajomych
-│   ├── UserProfilesController.cs # Profil użytkownika
-│   ├── BodyMeasurementsController.cs # Pomiary ciała
+│   ├── UserProfileController.cs  # Profil użytkownika
+│   ├── BodyMetricsController.cs  # Pomiary ciała
 │   └── UsersController.cs    # Admin: zarządzanie użytkownikami
 │
 ├── Middleware/                # Custom middleware
@@ -394,9 +394,9 @@ Response 201 Created:
 
 ---
 
-### 3. ScheduledWorkoutsController
+### 3. ScheduledController
 
-**Route**: `/api/scheduled-workouts`  
+**Route**: `/api/scheduled`  
 **Autoryzacja**: `[Authorize]`
 
 #### Endpointy
@@ -410,10 +410,11 @@ Response 201 Created:
 | DELETE | `/{id}` | Usunięcie zaplanowanego treningu |
 | GET | `/by-date` | Treningi na konkretny dzieñ |
 | POST | `/{id}/duplicate` | Duplikacja na nową datę |
+| POST | `/{id}/reopen` | Cofnięcie "Quick Complete" |
 
 **Przykład: Schedule Workout**
 ```http
-POST /api/scheduled-workouts
+POST /api/scheduled
 Authorization: Bearer {token}
 
 {
@@ -439,9 +440,9 @@ Response 201 Created:
 
 ---
 
-### 4. WorkoutSessionsController
+### 4. SessionsController
 
-**Route**: `/api/workout-sessions`  
+**Route**: `/api/sessions`  
 **Autoryzacja**: `[Authorize]`
 
 #### Endpointy
@@ -459,7 +460,7 @@ Response 201 Created:
 
 **Przykład: Start Session**
 ```http
-POST /api/workout-sessions/start
+POST /api/sessions/start
 Authorization: Bearer {token}
 
 {
@@ -493,7 +494,7 @@ Response 200 OK:
 
 **Przykład: Patch Set**
 ```http
-PATCH /api/workout-sessions/{sessionId}/exercises/{exerciseId}/sets/1
+PATCH /api/sessions/{sessionId}/exercises/{exerciseId}/sets/1
 Authorization: Bearer {token}
 
 {
@@ -507,7 +508,7 @@ Response 200 OK: (full session object)
 
 **Przykład: Complete Session**
 ```http
-POST /api/workout-sessions/{sessionId}/complete
+POST /api/sessions/{sessionId}/complete
 Authorization: Bearer {token}
 
 Response 200 OK:
@@ -568,9 +569,9 @@ Response 200 OK:
 
 ---
 
-### 6. FriendshipsController
+### 6. FriendsController
 
-**Route**: `/api/friendships`  
+**Route**: `/api/friends`  
 **Autoryzacja**: `[Authorize]`
 
 #### Endpointy
